@@ -1,36 +1,175 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# نظام إدارة المخزون | Stock Management
 
-## Getting Started
+تطبيق بسيط لإدارة المخزون بواجهة عربية (RTL) مبني باستخدام **Next.js 16** و **MongoDB**.
+يتيح إضافة الأصناف، وتسجيل حركات الشراء والبيع والجرد، ومتابعة الأرصدة وتواريخ الصلاحية.
 
-First, run the development server:
+## المميزات
+
+- **الأصناف**: إضافة وتعديل وحذف الأصناف مع الوحدات (قطعة، زجاجة، كيلو، جركن، علبة، كرتونة).
+- **تسجيل الحركات**: شراء (وارد)، بيع (منصرف)، وتسوية جرد — كل حركة تسجل الرصيد قبل وبعد العملية.
+- **سجل كامل**: جدول بكل الحركات مع فلترة بالصنف والنوع والفترة الزمنية، وتصدير إلى CSV.
+- **لوحة تحكم**: قيمة المخزون، مبيعات وأرباح آخر ٣٠ يوم، وتنبيهات النفاد وقرب انتهاء الصلاحية.
+- **حماية الأرصدة**: لا يمكن بيع كمية أكبر من الرصيد المتاح، والتحديث يتم بعملية ذرية تمنع تجاوز الرصيد عند تسجيل عمليتين في نفس اللحظة.
+- **إعادة حساب تلقائية**: عند حذف حركة يُعاد بناء أرصدة الصنف من أول حركة حتى آخرها.
+
+## المتطلبات
+
+- Node.js 20.9 أو أحدث
+- MongoDB (محلي أو MongoDB Atlas)
+
+## التشغيل
+
+### 1. تثبيت الحزم
+
+```bash
+npm install
+```
+
+### 2. إعداد الاتصال بقاعدة البيانات
+
+أنشئ ملف `.env` (أو انسخ `.env.example`) وضع فيه رابط الاتصال:
+
+```env
+MONGODB_URI=mongodb+srv://<user>:<password>@<cluster>.mongodb.net
+MONGODB_DB=stock_management
+```
+
+أو للتشغيل على MongoDB محلي:
+
+```env
+MONGODB_URI=mongodb://127.0.0.1:27017/stock_management
+MONGODB_DB=stock_management
+```
+
+> روابط MongoDB Atlas لا تحتوي عادةً على اسم قاعدة البيانات، لذلك يستخدم التطبيق قيمة `MONGODB_DB`
+> (والافتراضي `stock_management`). ملف `.env.local` — إن وُجد — له أولوية على `.env`.
+
+### 3. تشغيل MongoDB محلياً (فقط إذا لم تستخدم Atlas)
+
+إذا كنت تستخدم Homebrew على macOS:
+
+```bash
+brew services start mongodb-community
+```
+
+أو يدوياً:
+
+```bash
+mongod --dbpath ./.mongo-data
+```
+
+### 4. (اختياري) إدخال بيانات تجريبية
+
+```bash
+npm run seed
+```
+
+> تنبيه: هذا الأمر يمسح محتويات `products` و `transactions` قبل إدخال البيانات التجريبية.
+
+### 5. تشغيل التطبيق
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+ثم افتح <http://localhost:3000>.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 6. حسابات الدخول
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+انسخ قيم المصادقة من `.env.example` إلى `.env` (أو عدّلها):
 
-## Learn More
+| الدور | اسم المستخدم (افتراضي) | كلمة المرور (افتراضي) | الصلاحيات |
+|---|---|---|---|
+| مدير | `Mohsen` | `manager123` | كامل النظام بما فيه الشركاء |
+| مدير | `Ahmed` | `manager123` | كامل النظام بما فيه الشركاء |
+| محاسب | `accountant` | `accountant123` | كل الوحدات ما عدا الشركاء |
 
-To learn more about Next.js, take a look at the following resources:
+الصفحة الرئيسية تعرض هوية **Honest Medical**، وتسجيل الدخول من `/login`. لوحة التحكم على `/dashboard`.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+للنسخة الإنتاجية:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm run build
+npm start
+```
 
-## Deploy on Vercel
+## هيكل المشروع
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```
+src/
+├── app/
+│   ├── page.tsx              لوحة التحكم
+│   ├── products/page.tsx     إدارة الأصناف
+│   ├── movements/page.tsx    سجل الحركات
+│   └── api/
+│       ├── products/         إضافة وتعديل وحذف الأصناف
+│       ├── movements/        تسجيل وحذف الحركات
+│       └── stats/            إحصائيات لوحة التحكم
+├── components/               مكونات الواجهة (النماذج، النوافذ، الشريط الجانبي)
+├── lib/                      الاتصال بقاعدة البيانات، الثوابت، أدوات التنسيق
+└── models/                   نماذج Mongoose: Product و Transaction
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## نموذج البيانات
+
+### Product (الصنف)
+
+| الحقل               | الوصف                                |
+| ------------------- | ------------------------------------ |
+| `name`              | اسم الصنف                            |
+| `unit`              | الوحدة                               |
+| `quantity`          | الرصيد الحالي                        |
+| `purchasePrice`     | سعر الشراء الحالي                    |
+| `salePrice`         | سعر البيع الحالي                     |
+| `expiryDate`        | تاريخ الصلاحية (اختياري)             |
+| `lowStockThreshold` | الحد الذي يظهر عنده تنبيه قرب النفاد |
+
+### Transaction (الحركة)
+
+| الحقل                            | الوصف                                  |
+| -------------------------------- | -------------------------------------- |
+| `product` / `productName`        | الصنف واسمه وقت الحركة                 |
+| `type`                           | `purchase` أو `sale` أو `adjustment`   |
+| `date`                           | تاريخ الحركة                           |
+| `quantity`                       | الكمية                                 |
+| `purchasePrice` / `salePrice`    | الأسعار وقت الحركة                     |
+| `total`                          | إجمالي قيمة الحركة                     |
+| `balanceBefore` / `balanceAfter` | الرصيد قبل وبعد الحركة                 |
+| `expiryDate`                     | تاريخ الصلاحية المرتبط بالحركة         |
+| `note`                           | ملاحظة (اسم العميل أو المورد مثلاً)    |
+
+تُحفظ الأسعار واسم الصنف داخل كل حركة، لذلك يظل السجل التاريخي صحيحاً حتى بعد تغيير أسعار الصنف أو اسمه.
+
+## واجهة الـ API
+
+| الطريقة  | المسار                | الوظيفة                                    |
+| -------- | --------------------- | ------------------------------------------ |
+| `GET`    | `/api/products`       | قائمة الأصناف (`?search=`)                 |
+| `POST`   | `/api/products`       | إضافة صنف (مع رصيد افتتاحي اختياري)        |
+| `GET`    | `/api/products/:id`   | بيانات صنف                                 |
+| `PATCH`  | `/api/products/:id`   | تعديل صنف                                  |
+| `DELETE` | `/api/products/:id`   | حذف صنف وكل حركاته                         |
+| `GET`    | `/api/movements`      | الحركات (`?productId=&type=&from=&to=`)    |
+| `POST`   | `/api/movements`      | تسجيل حركة جديدة                           |
+| `DELETE` | `/api/movements/:id`  | حذف حركة وإعادة حساب الرصيد                |
+| `GET`    | `/api/stats`          | إحصائيات لوحة التحكم                       |
+
+### مثال: تسجيل عملية بيع
+
+```bash
+curl -X POST http://localhost:3000/api/movements \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "productId": "6a6ddb2f4d9729e6fc886862",
+    "type": "sale",
+    "quantity": 20,
+    "salePrice": 34,
+    "note": "عميل نقدي"
+  }'
+```
+
+## ملاحظات
+
+- في تسوية الجرد تُدخل **الكمية الفعلية بعد الجرد** (وليس الفرق)، ويحسب النظام الفارق تلقائياً.
+- عند ترك خانة السعر فارغة أثناء تسجيل حركة، يُستخدم السعر المحفوظ في بيانات الصنف.
+- حذف صنف يحذف كل حركاته المسجلة، بينما حذف حركة واحدة يعيد حساب أرصدة الصنف من جديد.

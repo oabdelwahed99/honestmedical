@@ -1,7 +1,12 @@
+import path from "node:path";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Pinned because an unrelated lockfile higher up the tree confuses the
+  // automatic workspace root detection.
+  turbopack: {
+    root: path.resolve("."),
+  },
 };
 
 export default nextConfig;

@@ -1,26 +1,169 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  --color-brand-50: #eef4ff;
+  --color-brand-100: #dbe7ff;
+  --color-brand-500: #2f6fed;
+  --color-brand-600: #1f57cc;
+  --color-brand-700: #1a45a3;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-cairo), system-ui, sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+:root {
+  --background: #f4f6fb;
+  --foreground: #0f172a;
+}
+
+html {
+  color-scheme: light;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+@layer components {
+  .card {
+    @apply rounded-2xl border border-slate-200 bg-white shadow-sm;
+  }
+
+  .field-label {
+    @apply mb-1.5 block text-sm font-medium text-slate-700;
+  }
+
+  .field-input {
+    @apply w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition
+           placeholder:text-slate-400
+           focus:border-brand-500 focus:ring-2 focus:ring-brand-100
+           disabled:cursor-not-allowed disabled:bg-slate-100;
+  }
+
+  .btn,
+  .btn-primary,
+  .btn-ghost,
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition
+           disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .btn-primary {
+    @apply bg-brand-600 text-white hover:bg-brand-700;
+  }
+
+  .btn-ghost {
+    @apply border border-slate-300 bg-white text-slate-700 hover:bg-slate-50;
+  }
+
+  .btn-danger {
+    @apply bg-rose-600 text-white hover:bg-rose-700;
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold;
+  }
+
+  .landing-shell {
+    background:
+      radial-gradient(1200px 600px at 85% -10%, rgba(47, 111, 237, 0.18), transparent 55%),
+      radial-gradient(900px 500px at -10% 90%, rgba(14, 116, 144, 0.14), transparent 50%),
+      linear-gradient(160deg, #f7f9fd 0%, #eef3fb 45%, #e8f4f2 100%);
+  }
+
+  .landing-glow {
+    pointer-events: none;
+    position: absolute;
+    inset: auto auto -8rem -6rem;
+    height: 22rem;
+    width: 22rem;
+    border-radius: 9999px;
+    background: radial-gradient(circle, rgba(31, 87, 204, 0.2), transparent 70%);
+    filter: blur(8px);
+    animation: landing-float 9s ease-in-out infinite;
+  }
+
+  .landing-grid {
+    pointer-events: none;
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(15, 23, 42, 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(15, 23, 42, 0.035) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(ellipse at 30% 35%, black 20%, transparent 70%);
+  }
+
+  .landing-hero-panel {
+    animation: landing-rise 0.8s ease-out both;
+  }
+
+  .landing-brand-title {
+    animation: landing-rise 0.9s ease-out 0.08s both;
+  }
+}
+
+@keyframes landing-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes landing-float {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(24px, -18px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-glow,
+  .landing-hero-panel,
+  .landing-brand-title {
+    animation: none !important;
+  }
+}
+
+@media print {
+  aside,
+  header.fixed,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  body {
+    background: white;
+  }
+
+  main {
+    padding: 0 !important;
+  }
+
+  .card {
+    border: none !important;
+    box-shadow: none !important;
+  }
 }
