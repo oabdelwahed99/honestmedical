@@ -55,6 +55,11 @@ export async function GET(request: NextRequest) {
       filter.partyName = { $regex: escapeRegex(party), $options: "i" };
     }
 
+    const invoice = params.get("invoice")?.trim();
+    if (invoice) {
+      filter.invoiceNumber = { $regex: escapeRegex(invoice), $options: "i" };
+    }
+
     const from = params.get("from");
     const to = params.get("to");
     if (from || to) {

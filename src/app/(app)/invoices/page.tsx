@@ -15,7 +15,9 @@ import {
 } from "@/components/ui";
 import { apiFetch } from "@/lib/client";
 import {
+  INVOICE_KIND_LABELS,
   INVOICE_STATUS_LABELS,
+  type InvoiceKind,
   type InvoiceStatus,
 } from "@/lib/constants";
 import {
@@ -24,7 +26,7 @@ import {
   formatNumber,
   toMonthInputValue,
 } from "@/lib/format";
-import type { Invoice } from "@/lib/types";
+import type { Invoice, SalesRep } from "@/lib/types";
 
 const STATUS_STYLE: Record<InvoiceStatus, string> = {
   paid: "bg-emerald-50 text-emerald-700",
@@ -34,18 +36,31 @@ const STATUS_STYLE: Record<InvoiceStatus, string> = {
 
 export default function InvoicesPage() {
   const router = useRouter();
+  const [kind, setKind] = useState<InvoiceKind>("sale");
   const [month, setMonth] = useState(toMonthInputValue());
   const [status, setStatus] = useState<"" | InvoiceStatus>("");
+  const [repId, setRepId] = useState("");
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
+  const [formDirty, setFormDirty] = useState(false);
   const [actionError, setActionError] = useState("");
 
+  const { data: repsData } = useSWR<{ reps: SalesRep[] }>(
+    kind === "sale" ? "/api/reps?active=1" : null,
+    apiFetch,
+  );
+
   const query = useMemo(() => {
-    const params = new URLSearchParams({ month });
+    const params = new URLSearchParams({ kind });
+    if (search.trim()) {
+      params.set("search", search.trim());
+    } else {
+      params.set("month", month);
+    }
     if (status) params.set("status", status);
-    if (search.trim()) params.set("search", search.trim());
+    if (kind === "sale" && repId) params.set("repId", repId);
     return `/api/invoices?${params.toString()}`;
-  }, [month, status, search]);
+  }, [kind, month, status, search, repId]);
 
   const { data, error, isLoading, mutate } = useSWR<{ invoices: Invoice[] }>(
     query,
@@ -57,7 +72,9 @@ export default function InvoicesPage() {
   async function deleteInvoice(id: string) {
     if (
       !confirm(
-        "حذف الفاتورة سيعيد كميات البيع إلى المخزون. هل تريد المتابعة؟",
+        kind === "purchase"
+          ? "حذف فاتورة الشراء سينقص الكميات الواردة من المخزون. هل تريد المتابعة؟"
+          : "حذف الفاتورة سيعيد كميات البيع إلى المخزون. هل تريد المتابعة؟",
       )
     ) {
       return;
@@ -71,11 +88,16 @@ export default function InvoicesPage() {
     }
   }
 
+  function closeModal() {
+    setOpen(false);
+    setFormDirty(false);
+  }
+
   return (
     <>
       <PageHeader
         title="الفواتير"
-        subtitle="فواتير البيع التي تخصم من المخزون وتدخل في حساب الأرباح"
+        subtitle="فواتير البيع والشراء — البيع يخصم من المخزون والشراء يزيده"
         actions={
           <button
             type="button"
@@ -83,7 +105,7 @@ export default function InvoicesPage() {
             onClick={() => setOpen(true)}
           >
             <Plus size={18} />
-            فاتورة جديدة
+            {kind === "purchase" ? "فاتورة شراء جديدة" : "فاتورة بيع جديدة"}
           </button>
         }
       />
@@ -92,7 +114,27 @@ export default function InvoicesPage() {
         <Alert message={(error as Error | undefined)?.message || actionError} />
       ) : null}
 
-      <div className="card mb-4 grid gap-3 p-4 sm:grid-cols-3">
+      <div className="mb-4 flex gap-1 rounded-xl bg-slate-100 p-1">
+        {(Object.keys(INVOICE_KIND_LABELS) as InvoiceKind[]).map((value) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => {
+              setKind(value);
+              setRepId("");
+            }}
+            className={`flex-1 rounded-lg px-3 py-2.5 text-sm font-semibold transition ${
+              kind === value
+                ? "bg-white text-brand-700 shadow-sm"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            {INVOICE_KIND_LABELS[value]}
+          </button>
+        ))}
+      </div>
+
+      <div className="card mb-4 grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <label className="field-label" htmlFor="invoice-month">
             الشهر
@@ -103,7 +145,13 @@ export default function InvoicesPage() {
             className="field-input"
             value={month}
             onChange={(event) => setMonth(event.target.value)}
+            disabled={Boolean(search.trim())}
           />
+          {search.trim() ? (
+            <p className="mt-1 text-xs text-slate-400">
+              البحث يشمل كل الفترات
+            </p>
+          ) : null}
         </div>
         <div>
           <label className="field-label" htmlFor="invoice-status">
@@ -127,6 +175,26 @@ export default function InvoicesPage() {
             )}
           </select>
         </div>
+        {kind === "sale" ? (
+          <div>
+            <label className="field-label" htmlFor="invoice-rep-filter">
+              المندوب
+            </label>
+            <select
+              id="invoice-rep-filter"
+              className="field-input"
+              value={repId}
+              onChange={(event) => setRepId(event.target.value)}
+            >
+              <option value="">الكل</option>
+              {(repsData?.reps ?? []).map((rep) => (
+                <option key={rep._id} value={rep._id}>
+                  {rep.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
         <div>
           <label className="field-label" htmlFor="invoice-search">
             بحث
@@ -136,7 +204,7 @@ export default function InvoicesPage() {
             className="field-input"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="رقم الفاتورة أو العميل"
+            placeholder="رقم الفاتورة أو الطرف"
           />
         </div>
       </div>
@@ -145,7 +213,13 @@ export default function InvoicesPage() {
         {isLoading ? (
           <Loading />
         ) : invoices.length === 0 ? (
-          <EmptyState message="لا توجد فواتير في هذا الشهر" />
+          <EmptyState
+            message={
+              search.trim()
+                ? "لا توجد فواتير مطابقة للبحث"
+                : "لا توجد فواتير في هذا الشهر"
+            }
+          />
         ) : (
           <>
             <div className="overflow-x-auto">
@@ -154,7 +228,12 @@ export default function InvoicesPage() {
                   <tr>
                     <th className="px-4 py-3 font-semibold">الرقم</th>
                     <th className="px-4 py-3 font-semibold">التاريخ</th>
-                    <th className="px-4 py-3 font-semibold">العميل</th>
+                    <th className="px-4 py-3 font-semibold">
+                      {kind === "purchase" ? "المورد" : "العميل"}
+                    </th>
+                    {kind === "sale" ? (
+                      <th className="px-4 py-3 font-semibold">المندوب</th>
+                    ) : null}
                     <th className="px-4 py-3 font-semibold">الأصناف</th>
                     <th className="px-4 py-3 font-semibold">الإجمالي</th>
                     <th className="px-4 py-3 font-semibold">المدفوع</th>
@@ -172,6 +251,11 @@ export default function InvoicesPage() {
                       </td>
                       <td className="px-4 py-3">{formatDate(invoice.date)}</td>
                       <td className="px-4 py-3">{invoice.customerName}</td>
+                      {kind === "sale" ? (
+                        <td className="px-4 py-3">
+                          {invoice.repName || "—"}
+                        </td>
+                      ) : null}
                       <td className="px-4 py-3">
                         {formatNumber(invoice.items.length)}
                       </td>
@@ -224,13 +308,23 @@ export default function InvoicesPage() {
 
       <Modal
         open={open}
-        title="فاتورة بيع جديدة"
-        onClose={() => setOpen(false)}
+        title={
+          kind === "purchase" ? "فاتورة شراء جديدة" : "فاتورة بيع جديدة"
+        }
+        onClose={closeModal}
+        confirmCloseMessage={
+          formDirty
+            ? "يوجد بيانات غير محفوظة في المسودة. هل تريد الإغلاق؟ (المسودة محفوظة محلياً)"
+            : null
+        }
       >
         <InvoiceForm
-          onCancel={() => setOpen(false)}
+          key={kind}
+          kind={kind}
+          onDirtyChange={setFormDirty}
+          onCancel={closeModal}
           onSaved={async (invoiceId) => {
-            setOpen(false);
+            closeModal();
             await mutate();
             router.push(`/invoices/${invoiceId}`);
           }}

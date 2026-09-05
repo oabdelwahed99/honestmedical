@@ -31,6 +31,7 @@ const COLUMNS = [
   "التاريخ",
   "نوع الحركة",
   "العميل / المورد",
+  "رقم الفاتورة",
   "الكمية",
   "سعر الشراء",
   "سعر البيع",
@@ -62,6 +63,7 @@ function MovementsPageContent() {
   const [filters, setFilters] = useState({
     search: "",
     party: "",
+    invoice: "",
     type: "",
     from: "",
     to: "",
@@ -71,6 +73,7 @@ function MovementsPageContent() {
     const params = new URLSearchParams();
     if (filters.search) params.set("search", filters.search);
     if (filters.party) params.set("party", filters.party);
+    if (filters.invoice) params.set("invoice", filters.invoice);
     if (filters.type) params.set("type", filters.type);
     if (filters.from) params.set("from", filters.from);
     if (filters.to) params.set("to", filters.to);
@@ -131,6 +134,7 @@ function MovementsPageContent() {
       formatDate(movement.date),
       MOVEMENT_LABELS[movement.type],
       movement.partyName || "",
+      movement.invoiceNumber || "",
       movement.quantity,
       movement.purchasePrice,
       movement.salePrice,
@@ -207,7 +211,7 @@ function MovementsPageContent() {
 
       {error ? <Alert message={error} /> : null}
 
-      <div className="card mb-4 grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="card mb-4 grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <div>
           <label className="field-label" htmlFor="filter-search">
             بحث باسم الصنف
@@ -242,6 +246,20 @@ function MovementsPageContent() {
               <option key={name} value={name} />
             ))}
           </datalist>
+        </div>
+        <div>
+          <label className="field-label" htmlFor="filter-invoice">
+            رقم الفاتورة
+          </label>
+          <input
+            id="filter-invoice"
+            className="field-input"
+            value={filters.invoice}
+            onChange={(event) =>
+              setFilters({ ...filters, invoice: event.target.value })
+            }
+            placeholder="INV- أو PINV-"
+          />
         </div>
         <div>
           <label className="field-label" htmlFor="filter-type">
@@ -341,6 +359,18 @@ function MovementsPageContent() {
                       </td>
                       <td className="px-4 py-3 font-medium text-slate-800">
                         {movement.partyName || "—"}
+                      </td>
+                      <td className="px-4 py-3 text-slate-600">
+                        {movement.invoice ? (
+                          <Link
+                            href={`/invoices/${movement.invoice}`}
+                            className="font-medium text-brand-600 hover:underline"
+                          >
+                            {movement.invoiceNumber || "فاتورة"}
+                          </Link>
+                        ) : (
+                          movement.invoiceNumber || "—"
+                        )}
                       </td>
                       <td className="px-4 py-3 font-semibold text-slate-800">
                         {formatNumber(movement.quantity)}

@@ -6,7 +6,7 @@ import { Loader2 } from "lucide-react";
 import { apiFetch } from "@/lib/client";
 import {
   MOVEMENT_LABELS,
-  MOVEMENT_TYPES,
+  MOVEMENT_TYPE_GROUPS,
   isAdjustment,
   isInbound,
   isOutbound,
@@ -195,20 +195,29 @@ export function MovementForm({
     <form onSubmit={handleSubmit} noValidate>
       {error ? <Alert message={error} /> : null}
 
-      <div className="mb-5 grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 sm:grid-cols-4">
-        {MOVEMENT_TYPES.map((value) => (
-          <button
-            key={value}
-            type="button"
-            onClick={() => selectType(value)}
-            className={`rounded-lg px-2 py-2.5 text-xs font-semibold transition sm:text-sm ${
-              type === value
-                ? TYPE_ACTIVE[value]
-                : "text-slate-600 hover:bg-white"
-            }`}
-          >
-            {MOVEMENT_LABELS[value]}
-          </button>
+      <div className="mb-5 space-y-3">
+        {MOVEMENT_TYPE_GROUPS.map((group) => (
+          <div key={group.label}>
+            <p className="mb-1.5 px-1 text-xs font-semibold text-slate-500">
+              {group.label}
+            </p>
+            <div className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 sm:grid-cols-4">
+              {group.types.map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => selectType(value)}
+                  className={`rounded-lg px-2 py-2.5 text-xs font-semibold transition sm:text-sm ${
+                    type === value
+                      ? TYPE_ACTIVE[value]
+                      : "text-slate-600 hover:bg-white"
+                  }`}
+                >
+                  {MOVEMENT_LABELS[value]}
+                </button>
+              ))}
+            </div>
+          </div>
         ))}
       </div>
 

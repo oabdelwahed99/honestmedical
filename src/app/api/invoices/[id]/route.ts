@@ -10,13 +10,28 @@ import {
 import { recalculateProductLedger } from "@/lib/ledger";
 import { Invoice } from "@/models/Invoice";
 import { Transaction } from "@/models/Transaction";
-import type { InvoiceStatus } from "@/lib/constants";
+import type { DiscountType, InvoiceKind, InvoiceStatus } from "@/lib/constants";
 import type { Invoice as InvoiceType } from "@/lib/types";
 
 function invoiceStatus(total: number, amountPaid: number): InvoiceStatus {
   if (amountPaid <= 0) return "unpaid";
   if (amountPaid + 0.001 >= total) return "paid";
   return "partial";
+}
+
+function normalizeInvoice(invoice: InvoiceType): InvoiceType {
+  return {
+    ...invoice,
+    kind: (invoice.kind as InvoiceKind | undefined) ?? "sale",
+    rep: invoice.rep ?? null,
+    repName: invoice.repName ?? "",
+    discountType: (invoice.discountType as DiscountType | undefined) ?? "amount",
+    discountValue: invoice.discountValue ?? invoice.discount ?? 0,
+    items: (invoice.items ?? []).map((item) => ({
+      ...item,
+      expiryDate: item.expiryDate ?? null,
+    })),
+  };
 }
 
 const invoicePatch = z.object({
@@ -39,7 +54,9 @@ export async function GET(
     const invoice = await Invoice.findById(id).lean();
     if (!invoice) return errorResponse("الفاتورة غير موجودة", 404);
 
-    return NextResponse.json({ invoice: toPlain<InvoiceType>(invoice) });
+    return NextResponse.json({
+      invoice: normalizeInvoice(toPlain<InvoiceType>(invoice)),
+    });
   } catch (error) {
     return handleRouteError(error);
   }
@@ -71,7 +88,7 @@ export async function PATCH(
     await invoice.save();
 
     return NextResponse.json({
-      invoice: toPlain<InvoiceType>(invoice.toObject()),
+      invoice: normalizeInvoice(toPlain<InvoiceType>(invoice.toObject())),
     });
   } catch (error) {
     return handleRouteError(error);

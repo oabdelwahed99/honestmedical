@@ -1,6 +1,8 @@
 import type {
+  DiscountType,
   ExpenseBehavior,
   ExpenseCategory,
+  InvoiceKind,
   InvoiceStatus,
   MovementType,
   PartnerEntryType,
@@ -125,15 +127,21 @@ export type InvoiceItem = {
   salePrice: number;
   purchasePrice: number;
   total: number;
+  expiryDate: string | null;
 };
 
 export type Invoice = {
   _id: string;
   number: string;
+  kind: InvoiceKind;
   date: string;
   customerName: string;
+  rep: string | null;
+  repName: string;
   items: InvoiceItem[];
   subtotal: number;
+  discountType: DiscountType;
+  discountValue: number;
   discount: number;
   total: number;
   cogs: number;
@@ -143,6 +151,35 @@ export type Invoice = {
   movements: string[];
   createdAt: string;
   updatedAt: string;
+};
+
+export type SalesRep = {
+  _id: string;
+  name: string;
+  phone: string;
+  note: string;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SalesRepBalance = {
+  rep: SalesRep;
+  invoiceCount: number;
+  salesTotal: number;
+};
+
+export type SalesRepSummary = {
+  period: {
+    start: string;
+    end: string;
+    days: number;
+    label: string;
+    month: string | null;
+  };
+  reps: SalesRepBalance[];
+  totalSales: number;
+  invoiceCount: number;
 };
 
 export type ExpenseBreakdownRow = {

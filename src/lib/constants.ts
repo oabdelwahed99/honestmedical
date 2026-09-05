@@ -5,6 +5,7 @@ export const UNITS = [
   "جركن",
   "علبة",
   "كرتونة",
+  "دستة",
 ] as const;
 
 export type Unit = (typeof UNITS)[number];
@@ -23,7 +24,7 @@ export const MOVEMENT_TYPES = [
 export type MovementType = (typeof MOVEMENT_TYPES)[number];
 
 export const MOVEMENT_LABELS: Record<MovementType, string> = {
-  purchase: "شراء",
+  purchase: "وارد للمخزن (شراء)",
   sale: "بيع",
   return_in: "مرتجع عميل",
   return_out: "مرتجع مورد",
@@ -32,6 +33,28 @@ export const MOVEMENT_LABELS: Record<MovementType, string> = {
   sample: "عينات",
   adjustment: "تسوية جرد",
 };
+
+/** Groups for the movement-type picker. */
+export const MOVEMENT_TYPE_GROUPS = [
+  {
+    label: "وارد للمخزن",
+    types: ["purchase", "return_in"] as const satisfies readonly MovementType[],
+  },
+  {
+    label: "منصرف من المخزن",
+    types: [
+      "sale",
+      "return_out",
+      "damaged",
+      "expired",
+      "sample",
+    ] as const satisfies readonly MovementType[],
+  },
+  {
+    label: "تسوية",
+    types: ["adjustment"] as const satisfies readonly MovementType[],
+  },
+] as const;
 
 /** Stock increases (inbound). */
 export const INBOUND_TYPES = ["purchase", "return_in"] as const;
@@ -173,6 +196,24 @@ export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
   paid: "مدفوعة",
   partial: "جزئية",
   unpaid: "غير مدفوعة",
+};
+
+export const INVOICE_KINDS = ["sale", "purchase"] as const;
+
+export type InvoiceKind = (typeof INVOICE_KINDS)[number];
+
+export const INVOICE_KIND_LABELS: Record<InvoiceKind, string> = {
+  sale: "فاتورة بيع",
+  purchase: "فاتورة شراء",
+};
+
+export const DISCOUNT_TYPES = ["amount", "percent"] as const;
+
+export type DiscountType = (typeof DISCOUNT_TYPES)[number];
+
+export const DISCOUNT_TYPE_LABELS: Record<DiscountType, string> = {
+  amount: "مبلغ",
+  percent: "نسبة %",
 };
 
 export const PARTNER_ENTRY_TYPES = ["distribution"] as const;

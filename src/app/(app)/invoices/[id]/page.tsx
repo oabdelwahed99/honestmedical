@@ -11,7 +11,10 @@ import {
   PageHeader,
 } from "@/components/ui";
 import { apiFetch } from "@/lib/client";
-import { INVOICE_STATUS_LABELS } from "@/lib/constants";
+import {
+  INVOICE_KIND_LABELS,
+  INVOICE_STATUS_LABELS,
+} from "@/lib/constants";
 import { formatDate, formatMoney, formatNumber } from "@/lib/format";
 import type { Invoice } from "@/lib/types";
 
@@ -27,6 +30,8 @@ export default function InvoiceDetailPage() {
     apiFetch,
   );
   const invoice = data?.invoice ?? null;
+  const kind = invoice?.kind ?? "sale";
+  const isPurchase = kind === "purchase";
 
   async function savePayment() {
     if (!invoice || amountPaid === null) return;
@@ -50,7 +55,9 @@ export default function InvoiceDetailPage() {
     if (!invoice) return;
     if (
       !confirm(
-        "حذف الفاتورة سيعيد كميات البيع إلى المخزون. هل تريد المتابعة؟",
+        isPurchase
+          ? "حذف فاتورة الشراء سينقص الكميات الواردة من المخزون. هل تريد المتابعة؟"
+          : "حذف الفاتورة سيعيد كميات البيع إلى المخزون. هل تريد المتابعة؟",
       )
     ) {
       return;
@@ -85,11 +92,16 @@ export default function InvoiceDetailPage() {
     );
   }
 
+  const discountLabel =
+    invoice.discountType === "percent" && invoice.discountValue > 0
+      ? `الخصم (${invoice.discountValue}%)`
+      : "الخصم";
+
   return (
     <>
       <PageHeader
         title={invoice.number}
-        subtitle={`${invoice.customerName} · ${formatDate(invoice.date)}`}
+        subtitle={`${INVOICE_KIND_LABELS[kind]} · ${invoice.customerName} · ${formatDate(invoice.date)}`}
         actions={
           <div className="print:hidden flex flex-wrap gap-2">
             <Link href="/invoices" className="btn-ghost">
@@ -120,34 +132,65 @@ export default function InvoiceDetailPage() {
         <Alert message={(error as Error | undefined)?.message || actionError} />
       ) : null}
 
-      <div className="card overflow-hidden print:border-0 print:shadow-none">
-        <div className="grid gap-4 border-b border-slate-200 p-5 sm:grid-cols-3">
-          <div>
-            <p className="text-xs text-slate-500">العميل</p>
-            <p className="font-bold text-slate-900">{invoice.customerName}</p>
+      <div className="card overflow-hidden print:border print:border-slate-300 print:shadow-none">
+        <div className="border-b border-slate-200 p-5">
+          <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-lg font-bold text-slate-900">Honest Medical</p>
+              <p className="text-sm text-slate-500">
+                {INVOICE_KIND_LABELS[kind]}
+              </p>
+            </div>
+            <div className="text-left">
+              <p className="text-xs text-slate-500">رقم الفاتورة</p>
+              <p className="text-xl font-bold text-brand-700">
+                {invoice.number}
+              </p>
+            </div>
           </div>
-          <div>
-            <p className="text-xs text-slate-500">التاريخ</p>
-            <p className="font-bold text-slate-900">
-              {formatDate(invoice.date)}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-slate-500">الحالة</p>
-            <p className="font-bold text-slate-900">
-              {INVOICE_STATUS_LABELS[invoice.status]}
-            </p>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <p className="text-xs text-slate-500">
+                {isPurchase ? "المورد" : "العميل"}
+              </p>
+              <p className="font-bold text-slate-900">{invoice.customerName}</p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-500">التاريخ</p>
+              <p className="font-bold text-slate-900">
+                {formatDate(invoice.date)}
+              </p>
+            </div>
+            {!isPurchase ? (
+              <div>
+                <p className="text-xs text-slate-500">المندوب</p>
+                <p className="font-bold text-slate-900">
+                  {invoice.repName || "—"}
+                </p>
+              </div>
+            ) : null}
+            <div>
+              <p className="text-xs text-slate-500">الحالة</p>
+              <p className="font-bold text-slate-900">
+                {INVOICE_STATUS_LABELS[invoice.status]}
+              </p>
+            </div>
           </div>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px] text-right text-sm">
+          <table className="invoice-print-table w-full min-w-[640px] text-right text-sm">
             <thead className="bg-slate-50 text-xs uppercase text-slate-500">
               <tr>
                 <th className="px-4 py-3 font-semibold">الصنف</th>
                 <th className="px-4 py-3 font-semibold">الوحدة</th>
                 <th className="px-4 py-3 font-semibold">الكمية</th>
-                <th className="px-4 py-3 font-semibold">السعر</th>
+                <th className="px-4 py-3 font-semibold">
+                  {isPurchase ? "سعر الشراء" : "السعر"}
+                </th>
+                {isPurchase ? (
+                  <th className="px-4 py-3 font-semibold">الصلاحية</th>
+                ) : null}
                 <th className="px-4 py-3 font-semibold">الإجمالي</th>
               </tr>
             </thead>
@@ -157,7 +200,16 @@ export default function InvoiceDetailPage() {
                   <td className="px-4 py-3 font-medium">{item.productName}</td>
                   <td className="px-4 py-3">{item.unit}</td>
                   <td className="px-4 py-3">{formatNumber(item.quantity)}</td>
-                  <td className="px-4 py-3">{formatMoney(item.salePrice)}</td>
+                  <td className="px-4 py-3">
+                    {formatMoney(
+                      isPurchase ? item.purchasePrice : item.salePrice,
+                    )}
+                  </td>
+                  {isPurchase ? (
+                    <td className="px-4 py-3">
+                      {formatDate(item.expiryDate)}
+                    </td>
+                  ) : null}
                   <td className="px-4 py-3 font-semibold">
                     {formatMoney(item.total)}
                   </td>
@@ -203,7 +255,7 @@ export default function InvoiceDetailPage() {
               <dd className="font-semibold">{formatMoney(invoice.subtotal)}</dd>
             </div>
             <div className="flex justify-between gap-4">
-              <dt className="text-slate-500">الخصم</dt>
+              <dt className="text-slate-500">{discountLabel}</dt>
               <dd className="font-semibold">{formatMoney(invoice.discount)}</dd>
             </div>
             <div className="flex justify-between gap-4 text-base">
@@ -226,6 +278,12 @@ export default function InvoiceDetailPage() {
                 )}
               </dd>
             </div>
+            {invoice.note ? (
+              <div className="hidden print:block">
+                <dt className="text-slate-500">ملاحظات</dt>
+                <dd className="font-semibold">{invoice.note}</dd>
+              </div>
+            ) : null}
           </dl>
         </div>
       </div>

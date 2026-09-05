@@ -1,5 +1,10 @@
 import mongoose, { Schema, type InferSchemaType, type Model } from "mongoose";
-import { INVOICE_STATUSES, UNITS } from "@/lib/constants";
+import {
+  DISCOUNT_TYPES,
+  INVOICE_KINDS,
+  INVOICE_STATUSES,
+  UNITS,
+} from "@/lib/constants";
 
 const InvoiceItemSchema = new Schema(
   {
@@ -14,6 +19,7 @@ const InvoiceItemSchema = new Schema(
     salePrice: { type: Number, required: true, min: 0 },
     purchasePrice: { type: Number, required: true, min: 0 },
     total: { type: Number, required: true, min: 0 },
+    expiryDate: { type: Date, default: null },
   },
   { _id: false },
 );
@@ -21,10 +27,31 @@ const InvoiceItemSchema = new Schema(
 const InvoiceSchema = new Schema(
   {
     number: { type: String, required: true, unique: true, trim: true },
+    kind: {
+      type: String,
+      required: true,
+      enum: INVOICE_KINDS,
+      default: "sale",
+      index: true,
+    },
     date: { type: Date, required: true, default: Date.now },
     customerName: { type: String, required: true, trim: true },
+    rep: {
+      type: Schema.Types.ObjectId,
+      ref: "SalesRep",
+      default: null,
+      index: true,
+    },
+    repName: { type: String, default: "", trim: true },
     items: { type: [InvoiceItemSchema], required: true, default: [] },
     subtotal: { type: Number, required: true, default: 0, min: 0 },
+    discountType: {
+      type: String,
+      required: true,
+      enum: DISCOUNT_TYPES,
+      default: "amount",
+    },
+    discountValue: { type: Number, required: true, default: 0, min: 0 },
     discount: { type: Number, required: true, default: 0, min: 0 },
     total: { type: Number, required: true, default: 0, min: 0 },
     cogs: { type: Number, required: true, default: 0, min: 0 },
@@ -49,6 +76,7 @@ const InvoiceSchema = new Schema(
 InvoiceSchema.index({ date: -1 });
 InvoiceSchema.index({ customerName: 1 });
 InvoiceSchema.index({ status: 1 });
+InvoiceSchema.index({ number: 1 });
 
 export type InvoiceDoc = InferSchemaType<typeof InvoiceSchema>;
 

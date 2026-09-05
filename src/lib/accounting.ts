@@ -102,7 +102,13 @@ async function aggregateExpenses(
 
 async function invoiceDiscounts(start: Date, end: Date): Promise<number> {
   const [row] = await Invoice.aggregate<{ total: number }>([
-    { $match: { date: { $gte: start, $lte: end } } },
+    {
+      $match: {
+        date: { $gte: start, $lte: end },
+        // Purchase discounts must not reduce sales revenue.
+        $or: [{ kind: "sale" }, { kind: { $exists: false } }],
+      },
+    },
     { $group: { _id: null, total: { $sum: "$discount" } } },
   ]);
   return row?.total ?? 0;
