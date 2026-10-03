@@ -11,6 +11,13 @@ export function escapeRegex(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+/** Converts Arabic-Indic (٠-٩) and Persian (۰-۹) digits to ASCII 0-9. */
+export function toLatinDigits(value: string) {
+  return value
+    .replace(/[\u0660-\u0669]/g, (digit) => String(digit.charCodeAt(0) - 0x0660))
+    .replace(/[\u06f0-\u06f9]/g, (digit) => String(digit.charCodeAt(0) - 0x06f0));
+}
+
 export function errorResponse(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status });
 }

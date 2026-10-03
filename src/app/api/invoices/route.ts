@@ -6,6 +6,7 @@ import {
   errorResponse,
   escapeRegex,
   handleRouteError,
+  toLatinDigits,
   toPlain,
 } from "@/lib/api-helpers";
 import { resolvePeriod } from "@/lib/period";
@@ -85,7 +86,7 @@ const invoiceItemInput = z.object({
 const invoiceInput = z.object({
   kind: z.enum(["sale", "purchase"]).default("sale"),
   customerName: z.string().trim().min(1, "أدخل اسم العميل أو المورد"),
-  statementNumber: z.string().trim().default(""),
+  statementNumber: z.string().trim().default("").transform(toLatinDigits),
   date: z.string().optional(),
   discountType: z.enum(["amount", "percent"]).default("amount"),
   discountValue: z.coerce.number().min(0, "الخصم غير صالح").default(0),
@@ -134,11 +135,12 @@ export async function GET(request: NextRequest) {
 
     const search = params.get("search")?.trim();
     if (search) {
+      const numberSearch = escapeRegex(toLatinDigits(search));
       andClauses.push({
         $or: [
-          { number: { $regex: escapeRegex(search), $options: "i" } },
+          { number: { $regex: numberSearch, $options: "i" } },
           { customerName: { $regex: escapeRegex(search), $options: "i" } },
-          { statementNumber: { $regex: escapeRegex(search), $options: "i" } },
+          { statementNumber: { $regex: numberSearch, $options: "i" } },
           { repName: { $regex: escapeRegex(search), $options: "i" } },
         ],
       });

@@ -5,6 +5,7 @@ import { connectToDatabase } from "@/lib/mongodb";
 import {
   errorResponse,
   handleRouteError,
+  toLatinDigits,
   toPlain,
 } from "@/lib/api-helpers";
 import { diffFields, logInvoiceAction, snapshotFields } from "@/lib/audit";
@@ -26,7 +27,7 @@ import type {
 const invoicePatch = z.object({
   note: z.string().trim().optional(),
   customerName: z.string().trim().min(1, "أدخل اسم العميل").optional(),
-  statementNumber: z.string().trim().optional(),
+  statementNumber: z.string().trim().transform(toLatinDigits).optional(),
   date: z.string().optional(),
 });
 
