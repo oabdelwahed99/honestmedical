@@ -52,16 +52,18 @@ export function isReturnMovement(type: MovementType): boolean {
   return (RETURN_MOVEMENT_TYPES as readonly string[]).includes(type);
 }
 
-/** Groups for the movement-type picker. */
+/** Written only by invoices so every sale and purchase stays on an invoice. */
+export const INVOICE_MOVEMENT_TYPES = ["purchase", "sale"] as const;
+
+export function isInvoiceMovement(type: MovementType): boolean {
+  return (INVOICE_MOVEMENT_TYPES as readonly string[]).includes(type);
+}
+
+/** Groups for the movement-type picker. Sales and purchases are invoices. */
 export const MOVEMENT_TYPE_GROUPS = [
-  {
-    label: "وارد للمخزن",
-    types: ["purchase"] as const satisfies readonly MovementType[],
-  },
   {
     label: "منصرف من المخزن",
     types: [
-      "sale",
       "damaged",
       "expired",
       "sample",
@@ -72,6 +74,18 @@ export const MOVEMENT_TYPE_GROUPS = [
     types: ["adjustment"] as const satisfies readonly MovementType[],
   },
 ] as const;
+
+export type ManualMovementType =
+  (typeof MOVEMENT_TYPE_GROUPS)[number]["types"][number];
+
+export function manualMovementType(type: MovementType): ManualMovementType {
+  for (const group of MOVEMENT_TYPE_GROUPS) {
+    if ((group.types as readonly MovementType[]).includes(type)) {
+      return type as ManualMovementType;
+    }
+  }
+  return MOVEMENT_TYPE_GROUPS[0].types[0];
+}
 
 /** Stock increases (inbound). */
 export const INBOUND_TYPES = [

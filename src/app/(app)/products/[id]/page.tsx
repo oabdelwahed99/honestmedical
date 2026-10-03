@@ -16,7 +16,6 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { Modal } from "@/components/modal";
-import { MovementForm } from "@/components/movement-form";
 import { ProductForm } from "@/components/product-form";
 import {
   Alert,
@@ -32,7 +31,7 @@ import {
   type MovementType,
 } from "@/lib/constants";
 import { daysUntil, formatDate, formatMoney, formatNumber } from "@/lib/format";
-import type { ProductDetails, Product as ProductType } from "@/lib/types";
+import type { ProductDetails } from "@/lib/types";
 
 const TYPE_STYLES: Record<MovementType, string> = {
   purchase: "bg-emerald-50 text-emerald-700",
@@ -47,10 +46,7 @@ const TYPE_STYLES: Record<MovementType, string> = {
   manufacture_in: "bg-indigo-50 text-indigo-700",
 };
 
-type Dialog =
-  | { kind: "none" }
-  | { kind: "edit" }
-  | { kind: "movement"; type: MovementType };
+type Dialog = { kind: "none" } | { kind: "edit" };
 
 export default function ProductDetailsPage() {
   const params = useParams<{ id: string }>();
@@ -61,20 +57,14 @@ export default function ProductDetailsPage() {
     id ? `/api/products/${id}/details` : null,
     apiFetch,
   );
-  const productsQuery = useSWR<{ products: ProductType[] }>(
-    "/api/products",
-    apiFetch,
-  );
-
   const details = detailsQuery.data;
   const product = details?.product;
   const summary = details?.summary;
   const movements = details?.recentMovements ?? [];
-  const products = productsQuery.data?.products ?? [];
   const error = (detailsQuery.error as Error | undefined)?.message;
 
   const reload = async () => {
-    await Promise.all([detailsQuery.mutate(), productsQuery.mutate()]);
+    await detailsQuery.mutate();
   };
 
   const closeDialog = () => setDialog({ kind: "none" });
@@ -150,23 +140,21 @@ export default function ProductDetailsPage() {
                 تصنيع
               </Link>
             ) : (
-              <button
-                type="button"
+              <Link
+                href="/invoices?kind=purchase&new=1"
                 className="btn bg-emerald-600 text-white hover:bg-emerald-700"
-                onClick={() => setDialog({ kind: "movement", type: "purchase" })}
               >
                 <ArrowDownLeft size={18} />
-                شراء
-              </button>
+                فاتورة شراء
+              </Link>
             )}
-            <button
-              type="button"
+            <Link
+              href="/invoices?kind=sale&new=1"
               className="btn-primary"
-              onClick={() => setDialog({ kind: "movement", type: "sale" })}
             >
               <ArrowUpRight size={18} />
-              بيع
-            </button>
+              فاتورة بيع
+            </Link>
             <button
               type="button"
               className="btn-ghost"
@@ -380,21 +368,6 @@ export default function ProductDetailsPage() {
         />
       </Modal>
 
-      <Modal
-        open={dialog.kind === "movement"}
-        title="تسجيل حركة"
-        onClose={closeDialog}
-      >
-        {dialog.kind === "movement" ? (
-          <MovementForm
-            products={products.length ? products : [product]}
-            defaultType={dialog.type}
-            defaultProductId={product._id}
-            onSaved={onSaved}
-            onCancel={closeDialog}
-          />
-        ) : null}
-      </Modal>
     </>
   );
 }

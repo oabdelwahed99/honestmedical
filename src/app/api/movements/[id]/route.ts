@@ -29,6 +29,12 @@ export async function DELETE(
         409,
       );
     }
+    if (existing.invoice) {
+      return errorResponse(
+        "هذه الحركة جزء من فاتورة — احذف الفاتورة من صفحة الفواتير",
+        409,
+      );
+    }
 
     const movement = await Transaction.findByIdAndDelete(id);
     if (!movement) return errorResponse("الحركة غير موجودة", 404);

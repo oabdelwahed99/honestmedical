@@ -181,7 +181,7 @@ function MovementsPageContent() {
         subtitle={
           filteredProduct
             ? `حركات الصنف: ${filteredProduct.name}`
-            : "شراء، بيع، مرتجعات، هالك، انتهاء صلاحية، عينات، وجرد — بالتاريخ والرصيد"
+            : "هالك، انتهاء صلاحية، عينات، وجرد. البيع والشراء يُسجَّلان من الفواتير ويظهران هنا"
         }
         actions={
           <>
@@ -414,6 +414,14 @@ function MovementsPageContent() {
                             className="whitespace-nowrap text-xs font-semibold text-orange-600 hover:underline"
                           >
                             اذن الارتجاع
+                          </Link>
+                        ) : movement.invoice ? (
+                          <Link
+                            href={`/invoices/${movement.invoice}`}
+                            title="تُلغى بحذف الفاتورة"
+                            className="whitespace-nowrap text-xs font-semibold text-brand-600 hover:underline"
+                          >
+                            الفاتورة
                           </Link>
                         ) : (
                           <button

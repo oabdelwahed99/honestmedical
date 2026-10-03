@@ -4,6 +4,7 @@ import { z } from "zod";
 import { connectToDatabase } from "@/lib/mongodb";
 import {
   MOVEMENT_TYPES,
+  isInvoiceMovement,
   isManufacture,
   isReturnMovement,
   type MovementType,
@@ -105,6 +106,9 @@ export async function POST(request: NextRequest) {
         "المرتجعات تُسجَّل من اذون الارتجاع برقم الفاتورة فقط",
         422,
       );
+    }
+    if (isInvoiceMovement(data.type)) {
+      return errorResponse("البيع والشراء يُسجَّلان من الفواتير فقط", 422);
     }
 
     const movement = await recordMovement({

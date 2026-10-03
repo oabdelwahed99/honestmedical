@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
 import { Eye, Plus, Trash2 } from "lucide-react";
 import { Modal } from "@/components/modal";
@@ -35,13 +35,37 @@ const STATUS_STYLE: Record<InvoiceStatus, string> = {
 };
 
 export default function InvoicesPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="card">
+          <Loading />
+        </div>
+      }
+    >
+      <InvoicesPageContent />
+    </Suspense>
+  );
+}
+
+function InvoicesPageContent() {
   const router = useRouter();
-  const [kind, setKind] = useState<InvoiceKind>("sale");
+  const searchParams = useSearchParams();
+  const requestedKind: InvoiceKind =
+    searchParams.get("kind") === "purchase" ? "purchase" : "sale";
+  const openNew = searchParams.get("new") === "1";
+  const [kind, setKind] = useState<InvoiceKind>(requestedKind);
   const [month, setMonth] = useState(toMonthInputValue());
   const [status, setStatus] = useState<"" | InvoiceStatus>("");
   const [repId, setRepId] = useState("");
   const [search, setSearch] = useState("");
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(openNew);
+
+  useEffect(() => {
+    setKind(requestedKind);
+    setRepId("");
+    if (openNew) setOpen(true);
+  }, [requestedKind, openNew]);
   const [formDirty, setFormDirty] = useState(false);
   const [actionError, setActionError] = useState("");
 

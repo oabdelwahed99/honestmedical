@@ -8,41 +8,32 @@ import {
   MOVEMENT_LABELS,
   MOVEMENT_TYPE_GROUPS,
   isAdjustment,
-  isInbound,
   isOutbound,
+  manualMovementType,
   movementTotal,
   partyLabel,
   partyPlaceholder,
+  type ManualMovementType,
   type MovementType,
 } from "@/lib/constants";
 import { formatMoney, formatNumber, toDateInputValue } from "@/lib/format";
 import { Alert } from "@/components/ui";
 import type { Product } from "@/lib/types";
 
-const TYPE_ACTIVE: Record<MovementType, string> = {
-  purchase: "bg-emerald-600 text-white",
-  sale: "bg-brand-600 text-white",
-  return_in: "bg-teal-600 text-white",
-  return_out: "bg-orange-600 text-white",
+const TYPE_ACTIVE: Record<ManualMovementType, string> = {
   damaged: "bg-rose-600 text-white",
   expired: "bg-fuchsia-700 text-white",
   sample: "bg-sky-600 text-white",
   adjustment: "bg-amber-500 text-white",
-  manufacture_out: "bg-violet-600 text-white",
-  manufacture_in: "bg-indigo-600 text-white",
 };
 
-function usesSalePrice(type: MovementType): boolean {
-  return type === "sale" || type === "return_in";
-}
-
-function showsPrice(type: MovementType): boolean {
-  return !isAdjustment(type) && type !== "sample";
+function showsPrice(type: ManualMovementType): boolean {
+  return type === "damaged" || type === "expired";
 }
 
 export function MovementForm({
   products,
-  defaultType = "sale",
+  defaultType = MOVEMENT_TYPE_GROUPS[0].types[0],
   defaultProductId = "",
   onSaved,
   onCancel,
@@ -53,14 +44,15 @@ export function MovementForm({
   onSaved: () => void;
   onCancel: () => void;
 }) {
-  const [type, setType] = useState<MovementType>(defaultType);
+  const [type, setType] = useState<ManualMovementType>(
+    manualMovementType(defaultType),
+  );
   const [productId, setProductId] = useState(
     defaultProductId || products[0]?._id || "",
   );
   const [quantity, setQuantity] = useState("");
   const [date, setDate] = useState(toDateInputValue(new Date()));
   const [price, setPrice] = useState("");
-  const [expiryDate, setExpiryDate] = useState("");
   const [partyName, setPartyName] = useState("");
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
@@ -76,15 +68,9 @@ export function MovementForm({
     [products, productId],
   );
 
-  const defaultPrice = usesSalePrice(type)
-    ? product?.salePrice
-    : product?.purchasePrice;
+  const defaultPrice = product?.purchasePrice;
   const effectivePrice =
-    type === "sample"
-      ? 0
-      : price === ""
-        ? (defaultPrice ?? 0)
-        : Number(price);
+    price === "" ? (defaultPrice ?? 0) : Number(price);
   const quantityValue = Number(quantity || 0);
   const balanceBefore = product?.quantity ?? 0;
 
@@ -94,12 +80,10 @@ export function MovementForm({
       ? balanceBefore - quantityValue
       : balanceBefore + quantityValue;
 
-  const purchasePrice = usesSalePrice(type)
-    ? (product?.purchasePrice ?? 0)
-    : effectivePrice;
-  const salePrice = usesSalePrice(type)
+  const purchasePrice = showsPrice(type)
     ? effectivePrice
-    : (product?.salePrice ?? 0);
+    : (product?.purchasePrice ?? 0);
+  const salePrice = product?.salePrice ?? 0;
 
   const total = movementTotal(
     type,
@@ -110,7 +94,7 @@ export function MovementForm({
 
   const notEnoughStock = isOutbound(type) && quantityValue > balanceBefore;
 
-  function selectType(next: MovementType) {
+  function selectType(next: ManualMovementType) {
     setType(next);
     setPrice("");
   }
@@ -147,16 +131,7 @@ export function MovementForm({
           type,
           quantity: quantityValue,
           date: date || undefined,
-          ...(type === "purchase" ||
-          type === "return_out" ||
-          type === "damaged" ||
-          type === "expired"
-            ? { purchasePrice: effectivePrice }
-            : {}),
-          ...(type === "sale" || type === "return_in"
-            ? { salePrice: effectivePrice }
-            : {}),
-          ...(expiryDate ? { expiryDate } : {}),
+          ...(showsPrice(type) ? { purchasePrice: effectivePrice } : {}),
           partyName: partyName.trim(),
           note,
         }),
@@ -183,19 +158,15 @@ export function MovementForm({
     );
   }
 
-  const priceLabel = usesSalePrice(type)
-    ? type === "return_in"
-      ? "قيمة المرتجع للوحدة"
-      : "سعر البيع للوحدة"
-    : type === "damaged" || type === "expired"
-      ? "تكلفة الوحدة (سعر الشراء)"
-      : type === "return_out"
-        ? "سعر الشراء للوحدة"
-        : "سعر الشراء للوحدة";
+  const priceLabel = "تكلفة الوحدة (سعر الشراء)";
 
   return (
     <form onSubmit={handleSubmit} noValidate>
       {error ? <Alert message={error} /> : null}
+
+      <p className="mb-4 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
+        البيع والشراء يُسجَّلان من صفحة الفواتير.
+      </p>
 
       <div className="mb-5 space-y-3">
         {MOVEMENT_TYPE_GROUPS.map((group) => (
@@ -203,7 +174,7 @@ export function MovementForm({
             <p className="mb-1.5 px-1 text-xs font-semibold text-slate-500">
               {group.label}
             </p>
-            <div className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 sm:grid-cols-3">
               {group.types.map((value) => (
                 <button
                   key={value}
@@ -302,21 +273,6 @@ export function MovementForm({
           </div>
         ) : null}
 
-        {type === "purchase" ? (
-          <div>
-            <label className="field-label" htmlFor="movement-expiry">
-              تاريخ الصلاحية
-            </label>
-            <input
-              id="movement-expiry"
-              type="date"
-              className="field-input"
-              value={expiryDate}
-              onChange={(event) => setExpiryDate(event.target.value)}
-            />
-          </div>
-        ) : null}
-
         <div className="sm:col-span-2">
           <label className="field-label" htmlFor="movement-party">
             {partyLabel(type)} <span className="text-rose-500">*</span>
@@ -377,11 +333,6 @@ export function MovementForm({
         </div>
       </dl>
 
-      {isInbound(type) && type !== "purchase" ? (
-        <p className="mt-2 text-center text-xs text-teal-700">
-          هذه الحركة تزيد رصيد المخزون
-        </p>
-      ) : null}
       {isOutbound(type) ? (
         <p className="mt-2 text-center text-xs text-slate-500">
           هذه الحركة تنقص رصيد المخزون

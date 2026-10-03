@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 import useSWR from "swr";
 import {
   ArrowDownLeft,
@@ -13,8 +12,6 @@ import {
   TriangleAlert,
   Wallet,
 } from "lucide-react";
-import { Modal } from "@/components/modal";
-import { MovementForm } from "@/components/movement-form";
 import {
   Alert,
   EmptyState,
@@ -58,7 +55,6 @@ const MOVEMENT_ICON_STYLE: Record<MovementType, string> = {
 };
 
 export default function DashboardPage() {
-  const [dialogType, setDialogType] = useState<MovementType | null>(null);
   const month = toMonthInputValue();
 
   const statsQuery = useSWR<{ stats: Stats }>("/api/stats", apiFetch);
@@ -85,15 +81,6 @@ export default function DashboardPage() {
       | undefined
   )?.message;
 
-  const reload = async () => {
-    await Promise.all([
-      statsQuery.mutate(),
-      productsQuery.mutate(),
-      movementsQuery.mutate(),
-      accountingQuery.mutate(),
-    ]);
-  };
-
   const attention = products
     .filter((product) => {
       const remaining = daysUntil(product.expiryDate);
@@ -111,22 +98,20 @@ export default function DashboardPage() {
         subtitle="نظرة سريعة على المخزون وحركة آخر ٣٠ يوم"
         actions={
           <>
-            <button
-              type="button"
+            <Link
+              href="/invoices?kind=purchase&new=1"
               className="btn bg-emerald-600 text-white hover:bg-emerald-700"
-              onClick={() => setDialogType("purchase")}
             >
               <ArrowDownLeft size={18} />
-              تسجيل شراء
-            </button>
-            <button
-              type="button"
+              فاتورة شراء
+            </Link>
+            <Link
+              href="/invoices?kind=sale&new=1"
               className="btn-primary"
-              onClick={() => setDialogType("sale")}
             >
               <ArrowUpRight size={18} />
-              تسجيل بيع
-            </button>
+              فاتورة بيع
+            </Link>
           </>
         }
       />
@@ -331,23 +316,6 @@ export default function DashboardPage() {
         </>
       )}
 
-      <Modal
-        open={dialogType !== null}
-        title="تسجيل حركة"
-        onClose={() => setDialogType(null)}
-      >
-        {dialogType ? (
-          <MovementForm
-            products={products}
-            defaultType={dialogType}
-            onSaved={async () => {
-              setDialogType(null);
-              await reload();
-            }}
-            onCancel={() => setDialogType(null)}
-          />
-        ) : null}
-      </Modal>
     </>
   );
 }

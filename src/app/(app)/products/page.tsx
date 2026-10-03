@@ -13,20 +13,17 @@ import {
   Trash2,
 } from "lucide-react";
 import { Modal } from "@/components/modal";
-import { MovementForm } from "@/components/movement-form";
 import { ProductForm } from "@/components/product-form";
 import { Alert, EmptyState, Loading, PageHeader } from "@/components/ui";
 import { apiFetch } from "@/lib/client";
 import { EXPIRY_WARNING_DAYS } from "@/lib/constants";
 import { daysUntil, formatDate, formatMoney, formatNumber } from "@/lib/format";
-import type { MovementType } from "@/lib/constants";
 import type { Product } from "@/lib/types";
 
 type Dialog =
   | { kind: "none" }
   | { kind: "create" }
-  | { kind: "edit"; product: Product }
-  | { kind: "movement"; type: MovementType; productId?: string };
+  | { kind: "edit"; product: Product };
 
 export default function ProductsPage() {
   const [search, setSearch] = useState("");
@@ -225,33 +222,23 @@ export default function ProductsPage() {
                               <Factory size={17} />
                             </Link>
                           ) : (
-                            <IconButton
-                              title="تسجيل شراء"
-                              className="text-emerald-600 hover:bg-emerald-50"
-                              onClick={() =>
-                                setDialog({
-                                  kind: "movement",
-                                  type: "purchase",
-                                  productId: product._id,
-                                })
-                              }
+                            <Link
+                              href="/invoices?kind=purchase&new=1"
+                              title="فاتورة شراء"
+                              aria-label="فاتورة شراء"
+                              className="rounded-lg p-2 text-emerald-600 transition hover:bg-emerald-50"
                             >
                               <ArrowDownLeft size={17} />
-                            </IconButton>
+                            </Link>
                           )}
-                          <IconButton
-                            title="تسجيل بيع"
-                            className="text-brand-600 hover:bg-brand-50"
-                            onClick={() =>
-                              setDialog({
-                                kind: "movement",
-                                type: "sale",
-                                productId: product._id,
-                              })
-                            }
+                          <Link
+                            href="/invoices?kind=sale&new=1"
+                            title="فاتورة بيع"
+                            aria-label="فاتورة بيع"
+                            className="rounded-lg p-2 text-brand-600 transition hover:bg-brand-50"
                           >
                             <ArrowUpRight size={17} />
-                          </IconButton>
+                          </Link>
                           <IconButton
                             title="تعديل"
                             className="text-slate-500 hover:bg-slate-100"
@@ -290,21 +277,6 @@ export default function ProductsPage() {
         />
       </Modal>
 
-      <Modal
-        open={dialog.kind === "movement"}
-        title="تسجيل حركة"
-        onClose={closeDialog}
-      >
-        {dialog.kind === "movement" ? (
-          <MovementForm
-            products={products}
-            defaultType={dialog.type}
-            defaultProductId={dialog.productId}
-            onSaved={onSaved}
-            onCancel={closeDialog}
-          />
-        ) : null}
-      </Modal>
     </>
   );
 }

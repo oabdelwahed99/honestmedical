@@ -133,7 +133,7 @@ export function ProductForm({
           />
           {isEdit ? (
             <p className="mt-1 text-xs text-slate-400">
-              يتغير الرصيد من خلال حركات الشراء والبيع فقط.
+              يتغير الرصيد من الفواتير وحركات المخزون، وليس من هنا.
             </p>
           ) : null}
         </div>
