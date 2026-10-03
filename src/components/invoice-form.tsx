@@ -20,7 +20,12 @@ import {
 } from "@/lib/invoice-draft";
 import { formatDate, formatMoney, toDateInputValue } from "@/lib/format";
 import { Alert } from "@/components/ui";
-import type { Product, ProductDetails, SalesRep } from "@/lib/types";
+import type {
+  AccountRow,
+  Product,
+  ProductDetails,
+  SalesRep,
+} from "@/lib/types";
 
 type Line = {
   key: string;
@@ -59,9 +64,12 @@ function readDraft(kind: InvoiceKind): InvoiceDraft | null {
 function draftFromState(input: {
   kind: InvoiceKind;
   customerName: string;
+  statementNumber: string;
   date: string;
   discountType: DiscountType;
   discountValue: string;
+  taxType: DiscountType;
+  taxValue: string;
   amountPaid: string;
   note: string;
   repId: string;
@@ -70,9 +78,12 @@ function draftFromState(input: {
   return {
     kind: input.kind,
     customerName: input.customerName,
+    statementNumber: input.statementNumber,
     date: input.date,
     discountType: input.discountType,
     discountValue: input.discountValue,
+    taxType: input.taxType,
+    taxValue: input.taxValue,
     amountPaid: input.amountPaid,
     note: input.note,
     repId: input.repId,
@@ -103,6 +114,11 @@ export function InvoiceForm({
     [products],
   );
   const reps = repsData?.reps ?? [];
+  const { data: accountsData } = useSWR<{ accounts: AccountRow[] }>(
+    `/api/accounts?kind=${kind === "purchase" ? "supplier" : "customer"}`,
+    apiFetch,
+  );
+  const partyNames = (accountsData?.accounts ?? []).map((row) => row.party.name);
 
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -112,6 +128,9 @@ export function InvoiceForm({
   const [customerName, setCustomerName] = useState(
     () => readDraft(kind)?.customerName ?? "",
   );
+  const [statementNumber, setStatementNumber] = useState(
+    () => readDraft(kind)?.statementNumber ?? "",
+  );
   const [date, setDate] = useState(
     () => readDraft(kind)?.date || toDateInputValue(new Date()),
   );
@@ -120,6 +139,12 @@ export function InvoiceForm({
   );
   const [discountValue, setDiscountValue] = useState(
     () => readDraft(kind)?.discountValue || "0",
+  );
+  const [taxType, setTaxType] = useState<DiscountType>(
+    () => readDraft(kind)?.taxType || "amount",
+  );
+  const [taxValue, setTaxValue] = useState(
+    () => readDraft(kind)?.taxValue || "0",
   );
   const [amountPaid, setAmountPaid] = useState(
     () => readDraft(kind)?.amountPaid || "",
@@ -143,9 +168,12 @@ export function InvoiceForm({
     const draft = draftFromState({
       kind,
       customerName,
+      statementNumber,
       date,
       discountType,
       discountValue,
+      taxType,
+      taxValue,
       amountPaid,
       note,
       repId,
@@ -161,9 +189,12 @@ export function InvoiceForm({
   }, [
     kind,
     customerName,
+    statementNumber,
     date,
     discountType,
     discountValue,
+    taxType,
+    taxValue,
     amountPaid,
     note,
     repId,
@@ -225,9 +256,17 @@ export function InvoiceForm({
       discountType === "percent"
         ? Math.min(subtotal, (subtotal * rawDiscount) / 100)
         : Math.min(subtotal, rawDiscount);
-    const total = Math.max(0, subtotal - discountResolved);
-    return { subtotal, discountResolved, total, warnings };
-  }, [lines, productMap, discountType, discountValue, kind]);
+    const netAfterDiscount = Math.max(0, subtotal - discountResolved);
+    const rawTax = Number(taxValue || 0);
+    const taxResolved =
+      rawTax <= 0
+        ? 0
+        : taxType === "percent"
+          ? (netAfterDiscount * rawTax) / 100
+          : rawTax;
+    const total = netAfterDiscount + taxResolved;
+    return { subtotal, discountResolved, taxResolved, total, warnings };
+  }, [lines, productMap, discountType, discountValue, taxType, taxValue, kind]);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -253,6 +292,14 @@ export function InvoiceForm({
       setError(kind === "purchase" ? "أدخل اسم المورد" : "أدخل اسم العميل");
       return;
     }
+    if (kind === "sale" && !statementNumber.trim()) {
+      setError("أدخل رقم البيان");
+      return;
+    }
+    if (kind === "sale" && !repId) {
+      setError("اختر المندوب");
+      return;
+    }
     if (items.length === 0) {
       setError("أضف صنفاً واحداً على الأقل");
       return;
@@ -271,9 +318,12 @@ export function InvoiceForm({
           body: JSON.stringify({
             kind,
             customerName,
+            ...(kind === "sale" ? { statementNumber } : {}),
             date: date || undefined,
             discountType,
             discountValue: Number(discountValue || 0),
+            taxType,
+            taxValue: Number(taxValue || 0),
             amountPaid:
               amountPaid === ""
                 ? computed.total
@@ -297,9 +347,12 @@ export function InvoiceForm({
   function clearDraft() {
     clearInvoiceDraft(kind);
     setCustomerName("");
+    setStatementNumber("");
     setDate(toDateInputValue(new Date()));
     setDiscountType("amount");
     setDiscountValue("0");
+    setTaxType("amount");
+    setTaxValue("0");
     setAmountPaid("");
     setNote("");
     setRepId("");
@@ -338,12 +391,37 @@ export function InvoiceForm({
           <input
             id="invoice-customer"
             className="field-input"
+            list="invoice-party-suggestions"
+            autoComplete="off"
             value={customerName}
             onChange={(event) => setCustomerName(event.target.value)}
             placeholder={partyPlaceholder}
             required
           />
+          <datalist id="invoice-party-suggestions">
+            {partyNames.map((name) => (
+              <option key={name} value={name} />
+            ))}
+          </datalist>
+          <p className="mt-1 text-xs text-slate-400">
+            اختر من الحسابات الموجودة أو اكتب اسماً جديداً لإنشاء حساب له.
+          </p>
         </div>
+
+        {kind === "sale" ? (
+          <div>
+            <label className="field-label" htmlFor="invoice-statement-number">
+              رقم البيان <span className="text-rose-500">*</span>
+            </label>
+            <input
+              id="invoice-statement-number"
+              className="field-input"
+              value={statementNumber}
+              onChange={(event) => setStatementNumber(event.target.value)}
+              required
+            />
+          </div>
+        ) : null}
 
         <div>
           <label className="field-label" htmlFor="invoice-date">
@@ -361,21 +439,29 @@ export function InvoiceForm({
         {kind === "sale" ? (
           <div>
             <label className="field-label" htmlFor="invoice-rep">
-              المندوب
+              المندوب <span className="text-rose-500">*</span>
             </label>
             <select
               id="invoice-rep"
               className="field-input"
               value={repId}
               onChange={(event) => setRepId(event.target.value)}
+              required
             >
-              <option value="">بدون مندوب</option>
+              <option value="" disabled>
+                اختر المندوب
+              </option>
               {reps.map((rep) => (
                 <option key={rep._id} value={rep._id}>
                   {rep.name}
                 </option>
               ))}
             </select>
+            {repsData && reps.length === 0 ? (
+              <p className="mt-1 text-xs text-rose-600">
+                لا يوجد مناديب نشطون — أضف مندوباً من صفحة المناديب أولاً.
+              </p>
+            ) : null}
           </div>
         ) : null}
 
@@ -413,6 +499,41 @@ export function InvoiceForm({
             className="field-input"
             value={discountValue}
             onChange={(event) => setDiscountValue(event.target.value)}
+          />
+        </div>
+
+        <div>
+          <label className="field-label" htmlFor="invoice-tax-type">
+            نوع الضريبة
+          </label>
+          <select
+            id="invoice-tax-type"
+            className="field-input"
+            value={taxType}
+            onChange={(event) => setTaxType(event.target.value as DiscountType)}
+          >
+            {(Object.keys(DISCOUNT_TYPE_LABELS) as DiscountType[]).map(
+              (key) => (
+                <option key={key} value={key}>
+                  {DISCOUNT_TYPE_LABELS[key]}
+                </option>
+              ),
+            )}
+          </select>
+        </div>
+
+        <div>
+          <label className="field-label" htmlFor="invoice-tax">
+            الضريبة {taxType === "percent" ? "(%)" : "(مبلغ)"}
+          </label>
+          <input
+            id="invoice-tax"
+            type="number"
+            min="0"
+            step="0.01"
+            className="field-input"
+            value={taxValue}
+            onChange={(event) => setTaxValue(event.target.value)}
           />
         </div>
       </div>
@@ -624,7 +745,7 @@ export function InvoiceForm({
         </div>
       ) : null}
 
-      <dl className="mt-4 grid gap-2 rounded-xl bg-slate-50 p-4 text-sm sm:grid-cols-3">
+      <dl className="mt-4 grid gap-2 rounded-xl bg-slate-50 p-4 text-sm sm:grid-cols-4">
         <div>
           <dt className="text-slate-500">المجموع</dt>
           <dd className="font-bold">{formatMoney(computed.subtotal)}</dd>
@@ -639,6 +760,15 @@ export function InvoiceForm({
           <dd className="font-bold">{formatMoney(computed.discountResolved)}</dd>
         </div>
         <div>
+          <dt className="text-slate-500">
+            الضريبة
+            {taxType === "percent" && Number(taxValue) > 0
+              ? ` (${taxValue}%)`
+              : ""}
+          </dt>
+          <dd className="font-bold">{formatMoney(computed.taxResolved)}</dd>
+        </div>
+        <div>
           <dt className="text-slate-500">الصافي</dt>
           <dd className="font-bold text-brand-600">
             {formatMoney(computed.total)}
@@ -649,7 +779,7 @@ export function InvoiceForm({
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <div>
           <label className="field-label" htmlFor="invoice-paid">
-            المدفوع (اتركه فارغاً = كامل المبلغ)
+            المدفوع الآن (فارغ = كامل المبلغ، 0 = آجل)
           </label>
           <input
             id="invoice-paid"

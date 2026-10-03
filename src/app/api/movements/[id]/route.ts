@@ -15,6 +15,21 @@ export async function DELETE(
 
     await connectToDatabase();
 
+    const existing = await Transaction.findById(id).lean();
+    if (!existing) return errorResponse("الحركة غير موجودة", 404);
+    if (existing.production) {
+      return errorResponse(
+        "هذه الحركة جزء من عملية تصنيع — ألغِ عملية التصنيع من صفحة المصنعات",
+        409,
+      );
+    }
+    if (existing.returnNote) {
+      return errorResponse(
+        "هذه الحركة جزء من اذن ارتجاع — احذف اذن الارتجاع من صفحة اذون الارتجاع",
+        409,
+      );
+    }
+
     const movement = await Transaction.findByIdAndDelete(id);
     if (!movement) return errorResponse("الحركة غير موجودة", 404);
 

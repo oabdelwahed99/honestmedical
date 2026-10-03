@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { SESSION_COOKIE, canAccessPartners } from "@/lib/auth-types";
+import {
+  SESSION_COOKIE,
+  canAccessPartners,
+  canViewAudit,
+} from "@/lib/auth-types";
 import { verifySessionToken } from "@/lib/session-edge";
 
 const PUBLIC_PATHS = new Set(["/", "/login"]);
@@ -15,6 +19,15 @@ function isPartnersPath(pathname: string) {
     pathname.startsWith("/partners/") ||
     pathname === "/api/partners" ||
     pathname.startsWith("/api/partners/")
+  );
+}
+
+function isAuditPath(pathname: string) {
+  return (
+    pathname === "/audit" ||
+    pathname.startsWith("/audit/") ||
+    pathname === "/api/audit" ||
+    pathname.startsWith("/api/audit/")
   );
 }
 
@@ -47,6 +60,16 @@ export async function proxy(request: NextRequest) {
     if (isApiPath(pathname)) {
       return NextResponse.json(
         { error: "ليس لديك صلاحية للوصول لوحدة الشركاء" },
+        { status: 403 },
+      );
+    }
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
+  if (isAuditPath(pathname) && !canViewAudit(user.role)) {
+    if (isApiPath(pathname)) {
+      return NextResponse.json(
+        { error: "ليس لديك صلاحية للوصول لسجل التعديلات" },
         { status: 403 },
       );
     }

@@ -7,6 +7,7 @@ import {
 } from "@/lib/api-helpers";
 import { resolvePeriod } from "@/lib/period";
 import { Invoice } from "@/models/Invoice";
+import { ReturnNote } from "@/models/ReturnNote";
 import { SalesRep } from "@/models/SalesRep";
 import type {
   SalesRep as SalesRepType,
@@ -32,7 +33,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const [reps, aggregates] = await Promise.all([
+    const [reps, aggregates, returnRows] = await Promise.all([
       SalesRep.find().sort({ active: -1, name: 1 }).lean(),
       Invoice.aggregate<{
         _id: string | null;
@@ -50,14 +51,30 @@ export async function GET(request: NextRequest) {
           $group: {
             _id: "$rep",
             invoiceCount: { $sum: 1 },
-            salesTotal: { $sum: "$total" },
+            salesTotal: {
+              $sum: { $subtract: ["$total", { $ifNull: ["$tax", 0] }] },
+            },
           },
         },
+      ]),
+      // Customer returns reduce rep sales in the period the goods came back.
+      ReturnNote.aggregate<{ _id: string | null; total: number }>([
+        {
+          $match: {
+            direction: "customer",
+            date: { $gte: period.start, $lte: period.end },
+            rep: { $ne: null },
+          },
+        },
+        { $group: { _id: "$rep", total: { $sum: "$revenueValue" } } },
       ]),
     ]);
 
     const byRep = new Map(
       aggregates.map((row) => [String(row._id), row]),
+    );
+    const returnsByRep = new Map(
+      returnRows.map((row) => [String(row._id), row.total]),
     );
 
     const balances = toPlain<SalesRepType[]>(reps).map((rep) => {
@@ -65,7 +82,7 @@ export async function GET(request: NextRequest) {
       return {
         rep,
         invoiceCount: row?.invoiceCount ?? 0,
-        salesTotal: row?.salesTotal ?? 0,
+        salesTotal: (row?.salesTotal ?? 0) - (returnsByRep.get(rep._id) ?? 0),
       };
     });
 

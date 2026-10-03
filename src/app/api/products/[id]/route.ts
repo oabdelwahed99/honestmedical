@@ -9,6 +9,7 @@ import {
   handleRouteError,
   toPlain,
 } from "@/lib/api-helpers";
+import { PackageRecipe } from "@/models/PackageRecipe";
 import { Product } from "@/models/Product";
 import { Transaction } from "@/models/Transaction";
 import type { Product as ProductType } from "@/lib/types";
@@ -52,10 +53,17 @@ export async function PATCH(
     await connectToDatabase();
     const data = productPatch.parse(await request.json());
 
-    if (data.name || data.unit) {
-      const current = await Product.findById(id).lean();
-      if (!current) return errorResponse("الصنف غير موجود", 404);
+    const current = await Product.findById(id).lean();
+    if (!current) return errorResponse("الصنف غير موجود", 404);
 
+    if (current.manufactured) {
+      // Cost comes from production runs; the recipe owns the name and unit.
+      delete data.purchasePrice;
+      delete data.name;
+      delete data.unit;
+    }
+
+    if (data.name || data.unit) {
       const duplicate = await Product.findOne({
         _id: { $ne: id },
         name: {
@@ -108,6 +116,25 @@ export async function DELETE(
     if (!isValidObjectId(id)) return errorResponse("معرّف الصنف غير صالح", 400);
 
     await connectToDatabase();
+
+    const existing = await Product.findById(id).lean();
+    if (!existing) return errorResponse("الصنف غير موجود", 404);
+    if (existing.manufactured) {
+      return errorResponse(
+        "هذا الصنف مصنّع — احذفه أو عدّله من صفحة المصنعات",
+        409,
+      );
+    }
+    const usedIn = await PackageRecipe.findOne({
+      "components.product": existing._id,
+    }).lean();
+    if (usedIn) {
+      return errorResponse(
+        `لا يمكن حذف الصنف لأنه مكوّن في المصنّع "${usedIn.name}"`,
+        409,
+      );
+    }
+
     const product = await Product.findByIdAndDelete(id);
     if (!product) return errorResponse("الصنف غير موجود", 404);
 

@@ -6,6 +6,7 @@ import useSWR from "swr";
 import {
   ArrowDownLeft,
   ArrowUpRight,
+  Factory,
   Pencil,
   Plus,
   Search,
@@ -43,6 +44,12 @@ export default function ProductsPage() {
   const error = actionError || (loadError as Error | undefined)?.message || "";
 
   async function handleDelete(product: Product) {
+    if (product.manufactured) {
+      setActionError(
+        `"${product.name}" صنف مصنّع — احذفه أو عدّله من صفحة المصنعات`,
+      );
+      return;
+    }
     const confirmed = window.confirm(
       `سيتم حذف "${product.name}" وكل حركاته المسجلة. هل أنت متأكد؟`,
     );
@@ -144,8 +151,13 @@ export default function ProductsPage() {
                           href={`/products/${product._id}`}
                           className="group block"
                         >
-                          <p className="font-semibold text-slate-900 group-hover:text-brand-600 group-hover:underline">
+                          <p className="flex items-center gap-2 font-semibold text-slate-900 group-hover:text-brand-600 group-hover:underline">
                             {product.name}
+                            {product.manufactured ? (
+                              <span className="badge bg-indigo-50 text-indigo-700">
+                                مصنّع
+                              </span>
+                            ) : null}
                           </p>
                           {product.note ? (
                             <p className="text-xs text-slate-400">
@@ -203,19 +215,30 @@ export default function ProductsPage() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
-                          <IconButton
-                            title="تسجيل شراء"
-                            className="text-emerald-600 hover:bg-emerald-50"
-                            onClick={() =>
-                              setDialog({
-                                kind: "movement",
-                                type: "purchase",
-                                productId: product._id,
-                              })
-                            }
-                          >
-                            <ArrowDownLeft size={17} />
-                          </IconButton>
+                          {product.manufactured ? (
+                            <Link
+                              href="/packages"
+                              title="تصنيع"
+                              aria-label="تصنيع"
+                              className="rounded-lg p-2 text-indigo-600 transition hover:bg-indigo-50"
+                            >
+                              <Factory size={17} />
+                            </Link>
+                          ) : (
+                            <IconButton
+                              title="تسجيل شراء"
+                              className="text-emerald-600 hover:bg-emerald-50"
+                              onClick={() =>
+                                setDialog({
+                                  kind: "movement",
+                                  type: "purchase",
+                                  productId: product._id,
+                                })
+                              }
+                            >
+                              <ArrowDownLeft size={17} />
+                            </IconButton>
+                          )}
                           <IconButton
                             title="تسجيل بيع"
                             className="text-brand-600 hover:bg-brand-50"

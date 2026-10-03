@@ -36,6 +36,13 @@ const InvoiceSchema = new Schema(
     },
     date: { type: Date, required: true, default: Date.now },
     customerName: { type: String, required: true, trim: true },
+    party: {
+      type: Schema.Types.ObjectId,
+      ref: "Party",
+      default: null,
+      index: true,
+    },
+    statementNumber: { type: String, default: "", trim: true },
     rep: {
       type: Schema.Types.ObjectId,
       ref: "SalesRep",
@@ -53,9 +60,22 @@ const InvoiceSchema = new Schema(
     },
     discountValue: { type: Number, required: true, default: 0, min: 0 },
     discount: { type: Number, required: true, default: 0, min: 0 },
+    taxType: {
+      type: String,
+      required: true,
+      enum: DISCOUNT_TYPES,
+      default: "amount",
+    },
+    taxValue: { type: Number, required: true, default: 0, min: 0 },
+    tax: { type: Number, required: true, default: 0, min: 0 },
     total: { type: Number, required: true, default: 0, min: 0 },
     cogs: { type: Number, required: true, default: 0, min: 0 },
+    // Sum of payment allocations; payments are the source of truth.
     amountPaid: { type: Number, required: true, default: 0, min: 0 },
+    // Sum of return-note money effects; negative only via costlier exchanges.
+    returnedTotal: { type: Number, required: true, default: 0 },
+    // False until linked to a party and existing amountPaid moved to a payment.
+    ledgerReady: { type: Boolean, default: false, index: true },
     status: {
       type: String,
       required: true,
@@ -77,8 +97,21 @@ InvoiceSchema.index({ date: -1 });
 InvoiceSchema.index({ customerName: 1 });
 InvoiceSchema.index({ status: 1 });
 InvoiceSchema.index({ number: 1 });
+// Partial so legacy sale invoices without a statement number don't collide.
+InvoiceSchema.index(
+  { statementNumber: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { kind: "sale", statementNumber: { $gt: "" } },
+  },
+);
 
 export type InvoiceDoc = InferSchemaType<typeof InvoiceSchema>;
+
+// Mongoose keeps models across dev hot reloads; re-register so schema edits apply.
+if (process.env.NODE_ENV !== "production" && mongoose.models.Invoice) {
+  mongoose.deleteModel("Invoice");
+}
 
 export const Invoice: Model<InvoiceDoc> =
   (mongoose.models.Invoice as Model<InvoiceDoc>) ??

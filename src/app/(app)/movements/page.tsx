@@ -23,6 +23,8 @@ const TYPE_STYLES: Record<MovementType, string> = {
   expired: "bg-fuchsia-50 text-fuchsia-700",
   sample: "bg-sky-50 text-sky-700",
   adjustment: "bg-amber-50 text-amber-700",
+  manufacture_out: "bg-violet-50 text-violet-700",
+  manufacture_in: "bg-indigo-50 text-indigo-700",
 };
 
 const COLUMNS = [
@@ -397,15 +399,33 @@ function MovementsPageContent() {
                         {movement.note || "—"}
                       </td>
                       <td className="px-4 py-3">
-                        <button
-                          type="button"
-                          title="حذف الحركة"
-                          aria-label="حذف الحركة"
-                          onClick={() => handleDelete(movement)}
-                          className="rounded-lg p-2 text-rose-600 transition hover:bg-rose-50"
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                        {movement.production ? (
+                          <Link
+                            href="/packages"
+                            title="تُلغى من صفحة المصنعات"
+                            className="whitespace-nowrap text-xs font-semibold text-indigo-600 hover:underline"
+                          >
+                            المصنعات
+                          </Link>
+                        ) : movement.returnNote ? (
+                          <Link
+                            href={`/returns/${movement.returnNote}`}
+                            title="تُلغى بحذف اذن الارتجاع"
+                            className="whitespace-nowrap text-xs font-semibold text-orange-600 hover:underline"
+                          >
+                            اذن الارتجاع
+                          </Link>
+                        ) : (
+                          <button
+                            type="button"
+                            title="حذف الحركة"
+                            aria-label="حذف الحركة"
+                            onClick={() => handleDelete(movement)}
+                            className="rounded-lg p-2 text-rose-600 transition hover:bg-rose-50"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}

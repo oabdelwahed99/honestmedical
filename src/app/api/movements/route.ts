@@ -2,7 +2,12 @@ import { NextResponse, type NextRequest } from "next/server";
 import { isValidObjectId } from "mongoose";
 import { z } from "zod";
 import { connectToDatabase } from "@/lib/mongodb";
-import { MOVEMENT_TYPES, type MovementType } from "@/lib/constants";
+import {
+  MOVEMENT_TYPES,
+  isManufacture,
+  isReturnMovement,
+  type MovementType,
+} from "@/lib/constants";
 import {
   errorResponse,
   escapeRegex,
@@ -91,6 +96,16 @@ export async function POST(request: NextRequest) {
     await connectToDatabase();
 
     const data = movementInput.parse(await request.json());
+
+    if (isManufacture(data.type)) {
+      return errorResponse("حركات التصنيع تُسجَّل من صفحة المصنعات فقط", 422);
+    }
+    if (isReturnMovement(data.type)) {
+      return errorResponse(
+        "المرتجعات تُسجَّل من اذون الارتجاع برقم الفاتورة فقط",
+        422,
+      );
+    }
 
     const movement = await recordMovement({
       productId: data.productId,

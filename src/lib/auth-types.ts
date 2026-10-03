@@ -17,6 +17,10 @@ export function canAccessPartners(role: UserRole) {
   return role === "manager";
 }
 
+export function canViewAudit(role: UserRole) {
+  return role === "manager";
+}
+
 export function roleLabel(role: UserRole) {
   return role === "manager" ? "مدير" : "محاسب";
 }

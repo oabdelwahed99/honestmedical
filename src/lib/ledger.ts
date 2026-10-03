@@ -3,6 +3,8 @@ import { isAdjustment, isInbound, type MovementType } from "@/lib/constants";
 import { Product } from "@/models/Product";
 import { Transaction } from "@/models/Transaction";
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 /**
  * Replays every movement of a product in chronological order to rebuild the
  * "balance before / balance after" columns and the product's current quantity.
@@ -11,10 +13,14 @@ import { Transaction } from "@/models/Transaction";
 export async function recalculateProductLedger(
   productId: Types.ObjectId | string,
 ) {
-  const movements = await Transaction.find({ product: productId }).sort({
-    date: 1,
-    createdAt: 1,
-  });
+  // Date inputs are day-only (stored at midnight) while some movements carry a
+  // full timestamp, so same-day rows are replayed in the order they were entered.
+  const dayOf = (value: Date) => Math.floor(new Date(value).getTime() / DAY_MS);
+  const movements = (await Transaction.find({ product: productId })).sort(
+    (a, b) =>
+      dayOf(a.date) - dayOf(b.date) ||
+      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+  );
 
   let running = 0;
 

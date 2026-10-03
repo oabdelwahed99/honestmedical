@@ -1,3 +1,5 @@
+import type { PartyKind } from "@/lib/constants";
+
 const numberFormatter = new Intl.NumberFormat("ar-EG", {
   maximumFractionDigits: 2,
 });
@@ -26,6 +28,19 @@ export function formatDate(value?: string | Date | null) {
   }).format(date);
 }
 
+export function formatDateTime(value?: string | Date | null) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return new Intl.DateTimeFormat("ar-EG", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
 /** Formats a date for an <input type="date"> value. */
 export function toDateInputValue(value?: string | Date | null) {
   if (!value) return "";
@@ -49,6 +64,25 @@ export function daysUntil(value?: string | Date | null) {
 
 export function formatPercent(value: number, digits = 1) {
   return `${numberFormatter.format(Number(((value ?? 0) * 100).toFixed(digits)))}%`;
+}
+
+/** Reads a signed balance (positive = outstanding) from the party's side. */
+export function describeBalance(
+  kind: PartyKind,
+  balance: number,
+): { text: string; tone: string } {
+  if (Math.abs(balance) < 0.005) {
+    return { text: "مسدد بالكامل", tone: "text-emerald-700" };
+  }
+  const amount = formatMoney(Math.abs(balance));
+  if (kind === "customer") {
+    return balance > 0
+      ? { text: `عليه ${amount}`, tone: "text-rose-700" }
+      : { text: `له ${amount} (رصيد دائن)`, tone: "text-sky-700" };
+  }
+  return balance > 0
+    ? { text: `له ${amount} (مستحق للمورد)`, tone: "text-rose-700" }
+    : { text: `لنا عنده ${amount}`, tone: "text-sky-700" };
 }
 
 /** Formats a date/month key for an <input type="month"> value (YYYY-MM). */

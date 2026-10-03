@@ -10,6 +10,7 @@ import {
   ArrowUpRight,
   CalendarClock,
   Coins,
+  Factory,
   Package,
   Pencil,
   TriangleAlert,
@@ -42,6 +43,8 @@ const TYPE_STYLES: Record<MovementType, string> = {
   expired: "bg-fuchsia-50 text-fuchsia-700",
   sample: "bg-sky-50 text-sky-700",
   adjustment: "bg-amber-50 text-amber-700",
+  manufacture_out: "bg-violet-50 text-violet-700",
+  manufacture_in: "bg-indigo-50 text-indigo-700",
 };
 
 type Dialog =
@@ -111,6 +114,8 @@ export default function ProductDetailsPage() {
   const samples = summary.byType.sample?.quantity ?? 0;
   const returnIn = summary.byType.return_in?.quantity ?? 0;
   const returnOut = summary.byType.return_out?.quantity ?? 0;
+  const produced = summary.byType.manufacture_in?.quantity ?? 0;
+  const consumed = summary.byType.manufacture_out?.quantity ?? 0;
 
   const expiryHint =
     summary.expiryStatus === "none"
@@ -132,18 +137,28 @@ export default function ProductDetailsPage() {
       </Link>
 
       <PageHeader
-        title={product.name}
+        title={product.manufactured ? `${product.name} (مصنّع)` : product.name}
         subtitle={`${product.unit}${product.note ? ` · ${product.note}` : ""}`}
         actions={
           <>
-            <button
-              type="button"
-              className="btn bg-emerald-600 text-white hover:bg-emerald-700"
-              onClick={() => setDialog({ kind: "movement", type: "purchase" })}
-            >
-              <ArrowDownLeft size={18} />
-              شراء
-            </button>
+            {product.manufactured ? (
+              <Link
+                href="/packages"
+                className="btn bg-indigo-600 text-white hover:bg-indigo-700"
+              >
+                <Factory size={18} />
+                تصنيع
+              </Link>
+            ) : (
+              <button
+                type="button"
+                className="btn bg-emerald-600 text-white hover:bg-emerald-700"
+                onClick={() => setDialog({ kind: "movement", type: "purchase" })}
+              >
+                <ArrowDownLeft size={18} />
+                شراء
+              </button>
+            )}
             <button
               type="button"
               className="btn-primary"
@@ -267,6 +282,11 @@ export default function ProductDetailsPage() {
                 ["damaged", damaged, "هالك"],
                 ["expired", expiredWrittenOff, "انتهاء صلاحية"],
                 ["sample", samples, "عينات"],
+                ...(product.manufactured
+                  ? ([["manufacture_in", produced, "إنتاج مصنّع"]] as const)
+                  : consumed > 0
+                    ? ([["manufacture_out", consumed, "صرف تصنيع"]] as const)
+                    : []),
               ] as const
             ).map(([type, qty, label]) => (
               <div

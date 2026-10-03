@@ -204,7 +204,11 @@ export default function InvoicesPage() {
             className="field-input"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="رقم الفاتورة أو الطرف"
+            placeholder={
+              kind === "sale"
+                ? "رقم الفاتورة أو رقم البيان أو الطرف"
+                : "رقم الفاتورة أو الطرف"
+            }
           />
         </div>
       </div>
@@ -227,6 +231,9 @@ export default function InvoicesPage() {
                 <thead className="bg-slate-50 text-xs uppercase text-slate-500">
                   <tr>
                     <th className="px-4 py-3 font-semibold">الرقم</th>
+                    {kind === "sale" ? (
+                      <th className="px-4 py-3 font-semibold">رقم البيان</th>
+                    ) : null}
                     <th className="px-4 py-3 font-semibold">التاريخ</th>
                     <th className="px-4 py-3 font-semibold">
                       {kind === "purchase" ? "المورد" : "العميل"}
@@ -237,6 +244,7 @@ export default function InvoicesPage() {
                     <th className="px-4 py-3 font-semibold">الأصناف</th>
                     <th className="px-4 py-3 font-semibold">الإجمالي</th>
                     <th className="px-4 py-3 font-semibold">المدفوع</th>
+                    <th className="px-4 py-3 font-semibold">المتبقي</th>
                     <th className="px-4 py-3 font-semibold">الحالة</th>
                     <th className="px-4 py-3 font-semibold">إجراءات</th>
                   </tr>
@@ -249,6 +257,11 @@ export default function InvoicesPage() {
                           {invoice.number}
                         </Link>
                       </td>
+                      {kind === "sale" ? (
+                        <td className="px-4 py-3">
+                          {invoice.statementNumber || "—"}
+                        </td>
+                      ) : null}
                       <td className="px-4 py-3">{formatDate(invoice.date)}</td>
                       <td className="px-4 py-3">{invoice.customerName}</td>
                       {kind === "sale" ? (
@@ -264,6 +277,16 @@ export default function InvoicesPage() {
                       </td>
                       <td className="px-4 py-3">
                         {formatMoney(invoice.amountPaid)}
+                      </td>
+                      <td className="px-4 py-3">
+                        {formatMoney(
+                          Math.max(
+                            0,
+                            invoice.total -
+                              invoice.returnedTotal -
+                              invoice.amountPaid,
+                          ),
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <span

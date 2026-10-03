@@ -19,9 +19,18 @@ export const MOVEMENT_TYPES = [
   "expired",
   "sample",
   "adjustment",
+  "manufacture_out",
+  "manufacture_in",
 ] as const;
 
 export type MovementType = (typeof MOVEMENT_TYPES)[number];
+
+/** Written only by package production; never entered manually. */
+export const MANUFACTURE_TYPES = ["manufacture_out", "manufacture_in"] as const;
+
+export function isManufacture(type: MovementType): boolean {
+  return (MANUFACTURE_TYPES as readonly string[]).includes(type);
+}
 
 export const MOVEMENT_LABELS: Record<MovementType, string> = {
   purchase: "وارد للمخزن (شراء)",
@@ -32,19 +41,27 @@ export const MOVEMENT_LABELS: Record<MovementType, string> = {
   expired: "انتهاء الصلاحية",
   sample: "عينات",
   adjustment: "تسوية جرد",
+  manufacture_out: "صرف تصنيع",
+  manufacture_in: "إنتاج مصنّع",
 };
+
+/** Written only by return notes so every return is tied to an invoice. */
+export const RETURN_MOVEMENT_TYPES = ["return_in", "return_out"] as const;
+
+export function isReturnMovement(type: MovementType): boolean {
+  return (RETURN_MOVEMENT_TYPES as readonly string[]).includes(type);
+}
 
 /** Groups for the movement-type picker. */
 export const MOVEMENT_TYPE_GROUPS = [
   {
     label: "وارد للمخزن",
-    types: ["purchase", "return_in"] as const satisfies readonly MovementType[],
+    types: ["purchase"] as const satisfies readonly MovementType[],
   },
   {
     label: "منصرف من المخزن",
     types: [
       "sale",
-      "return_out",
       "damaged",
       "expired",
       "sample",
@@ -57,7 +74,11 @@ export const MOVEMENT_TYPE_GROUPS = [
 ] as const;
 
 /** Stock increases (inbound). */
-export const INBOUND_TYPES = ["purchase", "return_in"] as const;
+export const INBOUND_TYPES = [
+  "purchase",
+  "return_in",
+  "manufacture_in",
+] as const;
 
 /** Stock decreases (outbound). */
 export const OUTBOUND_TYPES = [
@@ -66,6 +87,7 @@ export const OUTBOUND_TYPES = [
   "damaged",
   "expired",
   "sample",
+  "manufacture_out",
 ] as const;
 
 export function isInbound(type: MovementType): boolean {
@@ -98,6 +120,8 @@ export function movementTotal(
       return quantity * purchasePrice;
     case "sample":
     case "adjustment":
+    case "manufacture_out":
+    case "manufacture_in":
       return 0;
   }
 }
@@ -205,6 +229,53 @@ export type InvoiceKind = (typeof INVOICE_KINDS)[number];
 export const INVOICE_KIND_LABELS: Record<InvoiceKind, string> = {
   sale: "فاتورة بيع",
   purchase: "فاتورة شراء",
+};
+
+export const PARTY_KINDS = ["customer", "supplier"] as const;
+
+export type PartyKind = (typeof PARTY_KINDS)[number];
+
+export const PARTY_KIND_LABELS: Record<PartyKind, string> = {
+  customer: "عميل",
+  supplier: "مورد",
+};
+
+export function partyKindForInvoice(kind: InvoiceKind): PartyKind {
+  return kind === "purchase" ? "supplier" : "customer";
+}
+
+/** "in" = money received (سند قبض), "out" = money paid (سند صرف). */
+export const PAYMENT_DIRECTIONS = ["in", "out"] as const;
+
+export type PaymentDirection = (typeof PAYMENT_DIRECTIONS)[number];
+
+export const PAYMENT_DIRECTION_LABELS: Record<PaymentDirection, string> = {
+  in: "سند قبض",
+  out: "سند صرف",
+};
+
+/** The direction that pays off a party's invoices. */
+export function settlingDirection(kind: PartyKind): PaymentDirection {
+  return kind === "customer" ? "in" : "out";
+}
+
+export const PAYMENT_SOURCES = ["manual", "invoice", "migrated"] as const;
+
+export type PaymentSource = (typeof PAYMENT_SOURCES)[number];
+
+export const RETURN_DIRECTION_LABELS: Record<PartyKind, string> = {
+  customer: "مرتجع عميل",
+  supplier: "مرتجع مورد",
+};
+
+export const RETURN_SETTLEMENTS = ["credit", "refund", "exchange"] as const;
+
+export type ReturnSettlement = (typeof RETURN_SETTLEMENTS)[number];
+
+export const RETURN_SETTLEMENT_LABELS: Record<ReturnSettlement, string> = {
+  credit: "خصم من حساب العميل",
+  refund: "استرداد الثمن",
+  exchange: "تبديل البضاعة",
 };
 
 export const DISCOUNT_TYPES = ["amount", "percent"] as const;

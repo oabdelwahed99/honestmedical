@@ -11,6 +11,8 @@ const ProductSchema = new Schema(
     expiryDate: { type: Date, default: null },
     lowStockThreshold: { type: Number, default: 0, min: 0 },
     note: { type: String, default: "", trim: true },
+    // Stock and cost of a manufactured package come only from production runs.
+    manufactured: { type: Boolean, default: false, index: true },
   },
   { timestamps: true },
 );

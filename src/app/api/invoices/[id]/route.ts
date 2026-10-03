@@ -7,39 +7,37 @@ import {
   handleRouteError,
   toPlain,
 } from "@/lib/api-helpers";
+import { diffFields, logInvoiceAction, snapshotFields } from "@/lib/audit";
+import { ensureLedgerMigrated, findOrCreateParty } from "@/lib/accounts";
+import { partyKindForInvoice, type InvoiceKind } from "@/lib/constants";
+import { normalizeInvoice } from "@/lib/invoice-normalize";
 import { recalculateProductLedger } from "@/lib/ledger";
+import { getSessionUser } from "@/lib/session";
 import { Invoice } from "@/models/Invoice";
+import { Payment } from "@/models/Payment";
+import { ReturnNote } from "@/models/ReturnNote";
 import { Transaction } from "@/models/Transaction";
-import type { DiscountType, InvoiceKind, InvoiceStatus } from "@/lib/constants";
-import type { Invoice as InvoiceType } from "@/lib/types";
-
-function invoiceStatus(total: number, amountPaid: number): InvoiceStatus {
-  if (amountPaid <= 0) return "unpaid";
-  if (amountPaid + 0.001 >= total) return "paid";
-  return "partial";
-}
-
-function normalizeInvoice(invoice: InvoiceType): InvoiceType {
-  return {
-    ...invoice,
-    kind: (invoice.kind as InvoiceKind | undefined) ?? "sale",
-    rep: invoice.rep ?? null,
-    repName: invoice.repName ?? "",
-    discountType: (invoice.discountType as DiscountType | undefined) ?? "amount",
-    discountValue: invoice.discountValue ?? invoice.discount ?? 0,
-    items: (invoice.items ?? []).map((item) => ({
-      ...item,
-      expiryDate: item.expiryDate ?? null,
-    })),
-  };
-}
+import type {
+  Invoice as InvoiceType,
+  Payment as PaymentType,
+  ReturnNote as ReturnNoteType,
+} from "@/lib/types";
 
 const invoicePatch = z.object({
-  amountPaid: z.coerce.number().min(0, "المبلغ المدفوع غير صالح").optional(),
   note: z.string().trim().optional(),
   customerName: z.string().trim().min(1, "أدخل اسم العميل").optional(),
+  statementNumber: z.string().trim().optional(),
   date: z.string().optional(),
 });
+
+const AUDITED_FIELDS = [
+  "customerName",
+  "statementNumber",
+  "date",
+  "note",
+  "amountPaid",
+  "status",
+] as const;
 
 export async function GET(
   _request: NextRequest,
@@ -50,12 +48,24 @@ export async function GET(
     if (!isValidObjectId(id)) return errorResponse("معرّف الفاتورة غير صالح", 400);
 
     await connectToDatabase();
+    await ensureLedgerMigrated();
 
     const invoice = await Invoice.findById(id).lean();
     if (!invoice) return errorResponse("الفاتورة غير موجودة", 404);
 
+    const [payments, returns] = await Promise.all([
+      Payment.find({ "allocations.invoice": invoice._id })
+        .sort({ date: 1, createdAt: 1 })
+        .lean(),
+      ReturnNote.find({ invoice: invoice._id })
+        .sort({ date: 1, createdAt: 1 })
+        .lean(),
+    ]);
+
     return NextResponse.json({
       invoice: normalizeInvoice(toPlain<InvoiceType>(invoice)),
+      payments: toPlain<PaymentType[]>(payments),
+      returns: toPlain<ReturnNoteType[]>(returns),
     });
   } catch (error) {
     return handleRouteError(error);
@@ -70,22 +80,78 @@ export async function PATCH(
     const { id } = await context.params;
     if (!isValidObjectId(id)) return errorResponse("معرّف الفاتورة غير صالح", 400);
 
+    const user = await getSessionUser();
+    if (!user) return errorResponse("يجب تسجيل الدخول أولاً", 401);
+
     await connectToDatabase();
+    await ensureLedgerMigrated();
 
     const invoice = await Invoice.findById(id);
     if (!invoice) return errorResponse("الفاتورة غير موجودة", 404);
 
     const data = invoicePatch.parse(await request.json());
+    const before = snapshotFields(invoice.toObject(), AUDITED_FIELDS);
+    const hasReturns = Boolean(await ReturnNote.exists({ invoice: invoice._id }));
 
-    if (data.customerName !== undefined) invoice.customerName = data.customerName;
+    if (
+      data.customerName !== undefined &&
+      data.customerName !== invoice.customerName
+    ) {
+      const manualPayment = await Payment.exists({
+        "allocations.invoice": invoice._id,
+        source: "manual",
+      });
+      if (hasReturns || manualPayment) {
+        return errorResponse(
+          "لا يمكن تغيير الطرف بعد تسجيل سندات أو اذون ارتجاع على الفاتورة",
+          409,
+        );
+      }
+      const kind = partyKindForInvoice((invoice.kind ?? "sale") as InvoiceKind);
+      const party = await findOrCreateParty(kind, data.customerName);
+      invoice.customerName = party.name;
+      invoice.party = party._id;
+      await Payment.updateMany(
+        { "allocations.invoice": invoice._id },
+        { $set: { party: party._id, partyName: party.name } },
+      );
+    }
+    if (
+      data.statementNumber !== undefined &&
+      data.statementNumber !== invoice.statementNumber &&
+      (invoice.kind ?? "sale") === "sale"
+    ) {
+      if (!data.statementNumber) {
+        return errorResponse("أدخل رقم البيان", 422);
+      }
+      if (hasReturns) {
+        return errorResponse(
+          "لا يمكن تعديل رقم البيان بعد تسجيل اذن ارتجاع على الفاتورة",
+          409,
+        );
+      }
+      const duplicate = await Invoice.exists({
+        _id: { $ne: invoice._id },
+        kind: "sale",
+        statementNumber: data.statementNumber,
+      });
+      if (duplicate) {
+        return errorResponse("رقم البيان مستخدم في فاتورة أخرى", 409);
+      }
+      invoice.statementNumber = data.statementNumber;
+    }
     if (data.note !== undefined) invoice.note = data.note;
     if (data.date) invoice.date = new Date(data.date);
-    if (data.amountPaid !== undefined) {
-      invoice.amountPaid = Math.min(data.amountPaid, invoice.total);
-      invoice.status = invoiceStatus(invoice.total, invoice.amountPaid);
-    }
 
     await invoice.save();
+
+    const changes = diffFields(
+      before,
+      snapshotFields(invoice.toObject(), AUDITED_FIELDS),
+    );
+    if (changes.length > 0) {
+      await logInvoiceAction({ action: "update", user, invoice, changes });
+    }
 
     return NextResponse.json({
       invoice: normalizeInvoice(toPlain<InvoiceType>(invoice.toObject())),
@@ -103,10 +169,39 @@ export async function DELETE(
     const { id } = await context.params;
     if (!isValidObjectId(id)) return errorResponse("معرّف الفاتورة غير صالح", 400);
 
+    const user = await getSessionUser();
+    if (!user) return errorResponse("يجب تسجيل الدخول أولاً", 401);
+
     await connectToDatabase();
+    await ensureLedgerMigrated();
 
     const invoice = await Invoice.findById(id);
     if (!invoice) return errorResponse("الفاتورة غير موجودة", 404);
+
+    if (await ReturnNote.exists({ invoice: invoice._id })) {
+      return errorResponse(
+        "على الفاتورة اذون ارتجاع — احذف اذون الارتجاع أولاً",
+        409,
+      );
+    }
+
+    const payments = await Payment.find({ "allocations.invoice": invoice._id });
+    // Payments created with the invoice (or migrated from it) go with it.
+    const ownPayments = payments.filter(
+      (payment) =>
+        payment.source !== "manual" &&
+        payment.allocations.every(
+          (allocation) => String(allocation.invoice) === String(invoice._id),
+        ),
+    );
+    if (ownPayments.length !== payments.length) {
+      return errorResponse(
+        "على الفاتورة سندات سداد — احذف السندات من حساب الطرف أولاً",
+        409,
+      );
+    }
+
+    const snapshot = normalizeInvoice(toPlain<InvoiceType>(invoice.toObject()));
 
     const movements = await Transaction.find({ invoice: invoice._id });
     const productIds = [
@@ -114,7 +209,12 @@ export async function DELETE(
     ];
 
     await Transaction.deleteMany({ invoice: invoice._id });
+    await Payment.deleteMany({
+      _id: { $in: ownPayments.map((payment) => payment._id) },
+    });
     await Invoice.deleteOne({ _id: invoice._id });
+
+    await logInvoiceAction({ action: "delete", user, invoice, snapshot });
 
     for (const productId of productIds) {
       await recalculateProductLedger(productId);

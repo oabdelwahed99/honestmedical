@@ -53,6 +53,8 @@ const MOVEMENT_ICON_STYLE: Record<MovementType, string> = {
   expired: "bg-fuchsia-50 text-fuchsia-600",
   sample: "bg-sky-50 text-sky-600",
   adjustment: "bg-amber-50 text-amber-600",
+  manufacture_out: "bg-violet-50 text-violet-600",
+  manufacture_in: "bg-indigo-50 text-indigo-600",
 };
 
 export default function DashboardPage() {

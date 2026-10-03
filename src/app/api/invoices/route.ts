@@ -14,36 +14,23 @@ import {
   undoMovement,
   StockError,
 } from "@/lib/stock";
+import {
+  findOrCreateParty,
+  invoiceStatus,
+  nextPaymentNumber,
+} from "@/lib/accounts";
+import { normalizeInvoice } from "@/lib/invoice-normalize";
 import { Invoice } from "@/models/Invoice";
+import { Payment } from "@/models/Payment";
 import { Product } from "@/models/Product";
 import { SalesRep } from "@/models/SalesRep";
-import type {
-  DiscountType,
-  InvoiceKind,
-  InvoiceStatus,
+import {
+  partyKindForInvoice,
+  settlingDirection,
+  type DiscountType,
+  type InvoiceKind,
 } from "@/lib/constants";
 import type { Invoice as InvoiceType } from "@/lib/types";
-
-function invoiceStatus(total: number, amountPaid: number): InvoiceStatus {
-  if (amountPaid <= 0) return "unpaid";
-  if (amountPaid + 0.001 >= total) return "paid";
-  return "partial";
-}
-
-function normalizeInvoice(invoice: InvoiceType): InvoiceType {
-  return {
-    ...invoice,
-    kind: (invoice.kind as InvoiceKind | undefined) ?? "sale",
-    rep: invoice.rep ?? null,
-    repName: invoice.repName ?? "",
-    discountType: (invoice.discountType as DiscountType | undefined) ?? "amount",
-    discountValue: invoice.discountValue ?? invoice.discount ?? 0,
-    items: (invoice.items ?? []).map((item) => ({
-      ...item,
-      expiryDate: item.expiryDate ?? null,
-    })),
-  };
-}
 
 function resolveDiscount(
   subtotal: number,
@@ -55,6 +42,16 @@ function resolveDiscount(
     return Math.min(subtotal, (subtotal * discountValue) / 100);
   }
   return Math.min(subtotal, discountValue);
+}
+
+function resolveTax(
+  base: number,
+  taxType: DiscountType,
+  taxValue: number,
+): number {
+  if (taxValue <= 0) return 0;
+  if (taxType === "percent") return (base * taxValue) / 100;
+  return taxValue;
 }
 
 async function nextInvoiceNumber(
@@ -88,11 +85,14 @@ const invoiceItemInput = z.object({
 const invoiceInput = z.object({
   kind: z.enum(["sale", "purchase"]).default("sale"),
   customerName: z.string().trim().min(1, "أدخل اسم العميل أو المورد"),
+  statementNumber: z.string().trim().default(""),
   date: z.string().optional(),
   discountType: z.enum(["amount", "percent"]).default("amount"),
   discountValue: z.coerce.number().min(0, "الخصم غير صالح").default(0),
   /** Legacy alias — treated as amount when discountValue is omitted. */
   discount: z.coerce.number().min(0, "الخصم غير صالح").optional(),
+  taxType: z.enum(["amount", "percent"]).default("amount"),
+  taxValue: z.coerce.number().min(0, "الضريبة غير صالحة").default(0),
   amountPaid: z.coerce.number().min(0, "المبلغ المدفوع غير صالح").default(0),
   note: z.string().trim().default(""),
   repId: z
@@ -127,12 +127,18 @@ export async function GET(request: NextRequest) {
       andClauses.push({ rep: repId });
     }
 
+    const partyId = params.get("partyId");
+    if (partyId && isValidObjectId(partyId)) {
+      andClauses.push({ party: partyId });
+    }
+
     const search = params.get("search")?.trim();
     if (search) {
       andClauses.push({
         $or: [
           { number: { $regex: escapeRegex(search), $options: "i" } },
           { customerName: { $regex: escapeRegex(search), $options: "i" } },
+          { statementNumber: { $regex: escapeRegex(search), $options: "i" } },
           { repName: { $regex: escapeRegex(search), $options: "i" } },
         ],
       });
@@ -195,6 +201,19 @@ export async function POST(request: NextRequest) {
       data.discountValue > 0
         ? data.discountValue
         : (data.discount ?? 0);
+    const statementNumber = kind === "sale" ? data.statementNumber : "";
+
+    if (kind === "sale") {
+      if (!statementNumber) {
+        return errorResponse("أدخل رقم البيان", 422);
+      }
+      if (await Invoice.exists({ kind: "sale", statementNumber })) {
+        return errorResponse("رقم البيان مستخدم في فاتورة أخرى", 409);
+      }
+      if (!data.repId) {
+        return errorResponse("اختر المندوب", 422);
+      }
+    }
 
     let repId: Types.ObjectId | null = null;
     let repName = "";
@@ -235,6 +254,9 @@ export async function POST(request: NextRequest) {
         );
       }
     }
+
+    const partyKind = partyKindForInvoice(kind);
+    const party = await findOrCreateParty(partyKind, data.customerName);
 
     const number = await nextInvoiceNumber(invoiceDate, kind);
     const invoiceId = new Types.ObjectId();
@@ -291,16 +313,23 @@ export async function POST(request: NextRequest) {
     }
 
     const discount = resolveDiscount(subtotal, discountType, discountValue);
-    const total = Math.max(0, subtotal - discount);
-    const amountPaid = Math.min(data.amountPaid, total);
+    const netAfterDiscount = Math.max(0, subtotal - discount);
+    const tax = resolveTax(netAfterDiscount, data.taxType, data.taxValue);
+    const total = netAfterDiscount + tax;
+    const amountPaid = Math.round(Math.min(data.amountPaid, total) * 100) / 100;
 
+    let invoiceCreated = false;
     try {
       const invoice = await Invoice.create({
         _id: invoiceId,
         number,
         kind,
         date: invoiceDate,
-        customerName: data.customerName,
+        customerName: party.name,
+        party: party._id,
+        ledgerReady: true,
+        returnedTotal: 0,
+        statementNumber,
         rep: repId,
         repName,
         items,
@@ -308,13 +337,33 @@ export async function POST(request: NextRequest) {
         discountType,
         discountValue,
         discount,
+        taxType: data.taxType,
+        taxValue: data.taxValue,
+        tax,
         total,
         cogs,
         amountPaid,
-        status: invoiceStatus(total, amountPaid),
+        status: invoiceStatus(total, 0, amountPaid),
         note: data.note,
         movements: createdMovementIds,
       });
+      invoiceCreated = true;
+
+      if (amountPaid > 0) {
+        const direction = settlingDirection(partyKind);
+        await Payment.create({
+          number: await nextPaymentNumber(direction, invoiceDate),
+          party: party._id,
+          partyName: party.name,
+          partyKind,
+          direction,
+          date: invoiceDate,
+          amount: amountPaid,
+          allocations: [{ invoice: invoiceId, invoiceNumber: number, amount: amountPaid }],
+          source: "invoice",
+          note: `مدفوع عند إنشاء ${number}`,
+        });
+      }
 
       return NextResponse.json(
         {
@@ -325,9 +374,11 @@ export async function POST(request: NextRequest) {
         { status: 201 },
       );
     } catch (error) {
+      if (invoiceCreated) await Invoice.deleteOne({ _id: invoiceId });
       for (const movementId of createdMovementIds) {
         await undoMovement(movementId);
       }
+      createdMovementIds.length = 0;
       throw error;
     }
   } catch (error) {

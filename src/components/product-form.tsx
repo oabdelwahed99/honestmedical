@@ -18,6 +18,7 @@ export function ProductForm({
   onCancel: () => void;
 }) {
   const isEdit = Boolean(product);
+  const manufactured = Boolean(product?.manufactured);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
@@ -40,9 +41,13 @@ export function ProductForm({
     setSaving(true);
 
     const payload = {
-      name: form.name,
-      unit: form.unit,
-      purchasePrice: Number(form.purchasePrice || 0),
+      ...(manufactured
+        ? {}
+        : {
+            name: form.name,
+            unit: form.unit,
+            purchasePrice: Number(form.purchasePrice || 0),
+          }),
       salePrice: Number(form.salePrice || 0),
       expiryDate: form.expiryDate || null,
       lowStockThreshold: Number(form.lowStockThreshold || 0),
@@ -70,6 +75,13 @@ export function ProductForm({
     <form onSubmit={handleSubmit} noValidate>
       {error ? <Alert message={error} /> : null}
 
+      {manufactured ? (
+        <p className="mb-4 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-700">
+          هذا صنف مصنّع: الاسم والوحدة والتركيبة تُعدَّل من صفحة المصنعات،
+          وسعر التكلفة يُحسب تلقائياً من عمليات التصنيع.
+        </p>
+      ) : null}
+
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="sm:col-span-2">
           <label className="field-label" htmlFor="product-name">
@@ -82,6 +94,7 @@ export function ProductForm({
             onChange={(event) => update("name", event.target.value)}
             placeholder="مثال: زيت عباد الشمس"
             required
+            disabled={manufactured}
           />
         </div>
 
@@ -94,6 +107,7 @@ export function ProductForm({
             className="field-input"
             value={form.unit}
             onChange={(event) => update("unit", event.target.value)}
+            disabled={manufactured}
           >
             {UNITS.map((unit) => (
               <option key={unit} value={unit}>
@@ -137,6 +151,7 @@ export function ProductForm({
             value={form.purchasePrice}
             onChange={(event) => update("purchasePrice", event.target.value)}
             placeholder="0.00"
+            disabled={manufactured}
           />
         </div>
 

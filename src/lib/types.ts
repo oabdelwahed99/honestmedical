@@ -6,8 +6,13 @@ import type {
   InvoiceStatus,
   MovementType,
   PartnerEntryType,
+  PartyKind,
+  PaymentDirection,
+  PaymentSource,
+  ReturnSettlement,
   Unit,
 } from "@/lib/constants";
+import type { UserRole } from "@/lib/auth-types";
 
 /** Product as returned by the API (dates serialised to ISO strings). */
 export type Product = {
@@ -20,6 +25,7 @@ export type Product = {
   expiryDate: string | null;
   lowStockThreshold: number;
   note: string;
+  manufactured?: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -43,6 +49,58 @@ export type Movement = {
   note: string;
   invoice: string | null;
   invoiceNumber: string;
+  production?: string | null;
+  returnNote?: string | null;
+  createdAt: string;
+};
+
+export type PackageComponent = {
+  product: string;
+  quantity: number;
+  /** Live values from the component product. */
+  productName: string;
+  unit: Unit | "";
+  available: number;
+  purchasePrice: number;
+  missing: boolean;
+};
+
+export type PackageRecipe = {
+  _id: string;
+  name: string;
+  note: string;
+  product: Product;
+  components: PackageComponent[];
+  /** Current component cost of one package. */
+  unitCost: number;
+  /** Packages that can be made from current component stock. */
+  maxProducible: number;
+  productionCount: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ProductionConsumed = {
+  product: string;
+  productName: string;
+  unit: Unit;
+  quantityPerUnit: number;
+  quantity: number;
+  purchasePrice: number;
+};
+
+export type ProductionRun = {
+  _id: string;
+  recipe: string;
+  product: string;
+  productName: string;
+  date: string;
+  quantity: number;
+  unitCost: number;
+  consumed: ProductionConsumed[];
+  movements: string[];
+  note: string;
+  reversedAt: string | null;
   createdAt: string;
 };
 
@@ -136,6 +194,8 @@ export type Invoice = {
   kind: InvoiceKind;
   date: string;
   customerName: string;
+  party: string | null;
+  statementNumber: string;
   rep: string | null;
   repName: string;
   items: InvoiceItem[];
@@ -143,14 +203,186 @@ export type Invoice = {
   discountType: DiscountType;
   discountValue: number;
   discount: number;
+  taxType: DiscountType;
+  taxValue: number;
+  tax: number;
   total: number;
   cogs: number;
   amountPaid: number;
+  /** Money effect of return notes against this invoice. */
+  returnedTotal: number;
   status: InvoiceStatus;
   note: string;
   movements: string[];
   createdAt: string;
   updatedAt: string;
+};
+
+export type Party = {
+  _id: string;
+  name: string;
+  kind: PartyKind;
+  phone: string;
+  note: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PaymentAllocation = {
+  invoice: string;
+  invoiceNumber: string;
+  amount: number;
+};
+
+export type Payment = {
+  _id: string;
+  number: string;
+  party: string;
+  partyName: string;
+  partyKind: PartyKind;
+  direction: PaymentDirection;
+  date: string;
+  amount: number;
+  allocations: PaymentAllocation[];
+  source: PaymentSource;
+  note: string;
+  createdAt: string;
+};
+
+export type ReturnItem = {
+  line: number;
+  product: string;
+  productName: string;
+  unit: Unit;
+  quantity: number;
+  unitPrice: number;
+  purchasePrice: number;
+  total: number;
+};
+
+export type ReturnReplacement = {
+  product: string;
+  productName: string;
+  unit: Unit;
+  quantity: number;
+  purchasePrice: number;
+  total: number;
+  expiryDate: string | null;
+};
+
+export type ReturnNote = {
+  _id: string;
+  number: string;
+  direction: PartyKind;
+  settlement: ReturnSettlement;
+  date: string;
+  party: string;
+  partyName: string;
+  invoice: string;
+  invoiceNumber: string;
+  statementNumber: string;
+  rep: string | null;
+  repName: string;
+  items: ReturnItem[];
+  goodsValue: number;
+  revenueValue: number;
+  moneyEffect: number;
+  replacements: ReturnReplacement[];
+  replacementValue: number;
+  movements: string[];
+  note: string;
+  createdBy: string;
+  createdAt: string;
+};
+
+export type ReturnLookupLine = {
+  line: number;
+  product: string;
+  productName: string;
+  unit: Unit;
+  sold: number;
+  returned: number;
+  remaining: number;
+  unitPrice: number;
+  purchasePrice: number;
+};
+
+export type ReturnLookup = {
+  invoice: Invoice;
+  lines: ReturnLookupLine[];
+  /** invoice.total / invoice.subtotal — spreads discount and tax over lines. */
+  moneyRatio: number;
+};
+
+export type OpenInvoice = {
+  _id: string;
+  number: string;
+  statementNumber: string;
+  date: string;
+  total: number;
+  returnedTotal: number;
+  amountPaid: number;
+  remaining: number;
+};
+
+export type AccountTotals = {
+  invoiceCount: number;
+  invoiced: number;
+  /** Net settling payments (receipts for customers, payments for suppliers). */
+  paid: number;
+  returned: number;
+  /** Positive = customer owes us / we owe the supplier. */
+  balance: number;
+};
+
+export type AccountRow = AccountTotals & {
+  party: Party;
+  lastActivity: string | null;
+};
+
+export type StatementEntry = {
+  kind: "invoice" | "payment" | "return";
+  id: string;
+  number: string;
+  date: string;
+  description: string;
+  debit: number;
+  credit: number;
+  balance: number;
+};
+
+export type AccountDetails = {
+  party: Party;
+  totals: AccountTotals;
+  statement: StatementEntry[];
+  openInvoices: OpenInvoice[];
+};
+
+export type AuditAction = "update" | "delete";
+
+export type AuditChange = {
+  field: string;
+  before: string | number | null;
+  after: string | number | null;
+};
+
+export type InvoiceAuditEntry = {
+  _id: string;
+  action: AuditAction;
+  invoice: string;
+  invoiceNumber: string;
+  invoiceKind: InvoiceKind;
+  customerName: string;
+  user: {
+    id: string;
+    username: string;
+    displayName: string;
+    role: UserRole;
+  };
+  changes: AuditChange[];
+  /** Full invoice as it was right before deletion. */
+  snapshot: Invoice | null;
+  createdAt: string;
 };
 
 export type SalesRep = {

@@ -33,6 +33,20 @@ const TransactionSchema = new Schema(
       index: true,
     },
     invoiceNumber: { type: String, default: "" },
+    // Set on return movements; they are undone only by deleting the note.
+    returnNote: {
+      type: Schema.Types.ObjectId,
+      ref: "ReturnNote",
+      default: null,
+      index: true,
+    },
+    // Set on manufacture movements; they are undone only by reversing the run.
+    production: {
+      type: Schema.Types.ObjectId,
+      ref: "ProductionRun",
+      default: null,
+      index: true,
+    },
   },
   { timestamps: true },
 );
@@ -41,6 +55,10 @@ TransactionSchema.index({ date: -1, createdAt: -1 });
 TransactionSchema.index({ partyName: 1 });
 
 export type TransactionDoc = InferSchemaType<typeof TransactionSchema>;
+
+if (process.env.NODE_ENV !== "production" && mongoose.models.Transaction) {
+  mongoose.deleteModel("Transaction");
+}
 
 export const Transaction: Model<TransactionDoc> =
   (mongoose.models.Transaction as Model<TransactionDoc>) ??

@@ -5,15 +5,19 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
   ArrowLeftRight,
+  Factory,
   FileText,
+  History,
   LayoutDashboard,
   LogOut,
   Menu,
   Package,
   Receipt,
   TrendingUp,
+  Undo2,
   UserRound,
   Users,
+  Wallet,
   Warehouse,
   X,
 } from "lucide-react";
@@ -24,12 +28,16 @@ import { canAccessPartners, roleLabel } from "@/lib/auth-types";
 const LINKS = [
   { href: "/dashboard", label: "لوحة التحكم", icon: LayoutDashboard },
   { href: "/products", label: "الأصناف", icon: Package },
+  { href: "/packages", label: "المصنعات", icon: Factory },
   { href: "/movements", label: "سجل الحركات", icon: ArrowLeftRight },
   { href: "/invoices", label: "الفواتير", icon: FileText },
+  { href: "/returns", label: "اذون الارتجاع", icon: Undo2 },
+  { href: "/accounts", label: "حسابات العملاء والموردين", icon: Wallet },
   { href: "/reps", label: "المناديب", icon: UserRound },
   { href: "/expenses", label: "المصروفات", icon: Receipt },
   { href: "/accounting", label: "التقارير المالية", icon: TrendingUp },
   { href: "/partners", label: "الشركاء", icon: Users, managersOnly: true },
+  { href: "/audit", label: "سجل التعديلات", icon: History, managersOnly: true },
 ];
 
 export function Sidebar() {

@@ -34,6 +34,8 @@ export type RecordMovementInput = {
   updateProductPrices?: boolean;
   invoiceId?: Types.ObjectId | string | null;
   invoiceNumber?: string;
+  productionId?: Types.ObjectId | string | null;
+  returnNoteId?: Types.ObjectId | string | null;
 };
 
 export type RecordedMovement = {
@@ -151,11 +153,17 @@ export async function recordMovement(
       note: input.note ?? "",
       invoice: input.invoiceId ?? null,
       invoiceNumber: input.invoiceNumber ?? "",
+      production: input.productionId ?? null,
+      returnNote: input.returnNoteId ?? null,
     });
 
     if (input.updateProductPrices !== false && input.type !== "sample") {
       const priceUpdate: Record<string, unknown> = {};
-      if (input.type === "purchase" && input.purchasePrice !== undefined) {
+      if (
+        input.type === "purchase" &&
+        input.purchasePrice !== undefined &&
+        !product.manufactured
+      ) {
         priceUpdate.purchasePrice = input.purchasePrice;
       }
       if (input.type === "sale" && input.salePrice !== undefined) {

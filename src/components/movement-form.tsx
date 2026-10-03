@@ -28,6 +28,8 @@ const TYPE_ACTIVE: Record<MovementType, string> = {
   expired: "bg-fuchsia-700 text-white",
   sample: "bg-sky-600 text-white",
   adjustment: "bg-amber-500 text-white",
+  manufacture_out: "bg-violet-600 text-white",
+  manufacture_in: "bg-indigo-600 text-white",
 };
 
 function usesSalePrice(type: MovementType): boolean {

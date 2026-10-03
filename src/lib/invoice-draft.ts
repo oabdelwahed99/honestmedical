@@ -11,9 +11,12 @@ export type InvoiceDraftLine = {
 export type InvoiceDraft = {
   kind: InvoiceKind;
   customerName: string;
+  statementNumber: string;
   date: string;
   discountType: DiscountType;
   discountValue: string;
+  taxType?: DiscountType;
+  taxValue?: string;
   amountPaid: string;
   note: string;
   repId: string;
@@ -64,12 +67,20 @@ export function clearInvoiceDraft(kind: InvoiceKind) {
 /** True when the draft has meaningful content worth protecting. */
 export function draftHasContent(draft: Pick<
   InvoiceDraft,
-  "customerName" | "note" | "lines" | "discountValue" | "repId"
+  | "customerName"
+  | "statementNumber"
+  | "note"
+  | "lines"
+  | "discountValue"
+  | "taxValue"
+  | "repId"
 >): boolean {
   if (draft.customerName.trim()) return true;
+  if (draft.statementNumber?.trim()) return true;
   if (draft.note.trim()) return true;
   if (draft.repId) return true;
   if (Number(draft.discountValue || 0) > 0) return true;
+  if (Number(draft.taxValue || 0) > 0) return true;
   // Default empty lines use quantity "1" — that alone is not real content.
   return draft.lines.some(
     (line) =>

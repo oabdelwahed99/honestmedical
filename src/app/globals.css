@@ -167,16 +167,73 @@ input[type="number"] {
     box-shadow: none !important;
   }
 
-  .invoice-print-table th,
-  .invoice-print-table td {
-    border-bottom: 1px solid #cbd5e1 !important;
-    padding-top: 0.5rem !important;
-    padding-bottom: 0.5rem !important;
+  @page {
+    size: A4;
+    margin: 14mm 12mm;
   }
 
-  .invoice-print-table thead {
-    background: #f8fafc !important;
+  .invoice-print,
+  .invoice-print * {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+  }
+
+  .invoice-print-watermark {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    z-index: 0;
+    transform: translate(-50%, -50%);
+    opacity: 0.07;
+    pointer-events: none;
+  }
+
+  .invoice-print-watermark img {
+    width: 120mm;
+    height: auto;
+  }
+
+  .invoice-print-items {
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .invoice-print-items thead {
+    display: table-header-group;
+  }
+
+  .invoice-print-items th {
+    background: #1f57cc;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 9px 10px;
+  }
+
+  .invoice-print-items th:first-child {
+    border-start-start-radius: 8px;
+  }
+
+  .invoice-print-items th:last-child {
+    border-start-end-radius: 8px;
+  }
+
+  .invoice-print-items td {
+    padding: 8px 10px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .invoice-print-items tbody tr:nth-child(even) td {
+    background: rgba(238, 244, 255, 0.6);
+  }
+
+  .invoice-print-items tr,
+  .invoice-print-avoid-break {
+    break-inside: avoid;
+  }
+
+  .invoice-print-total {
+    background: #1f57cc;
+    color: #fff;
   }
 }
