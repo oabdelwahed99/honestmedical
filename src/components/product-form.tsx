@@ -6,6 +6,7 @@ import { UNITS } from "@/lib/constants";
 import { apiFetch } from "@/lib/client";
 import { toDateInputValue } from "@/lib/format";
 import { Alert } from "@/components/ui";
+import { DateField } from "@/components/date-field";
 import type { Product } from "@/lib/types";
 
 export function ProductForm({
@@ -124,6 +125,8 @@ export function ProductForm({
           <input
             id="product-quantity"
             type="number"
+            lang="en"
+            dir="ltr"
             min="0"
             step="any"
             className="field-input"
@@ -145,6 +148,8 @@ export function ProductForm({
           <input
             id="product-purchase"
             type="number"
+            lang="en"
+            dir="ltr"
             min="0"
             step="any"
             className="field-input"
@@ -162,6 +167,8 @@ export function ProductForm({
           <input
             id="product-sale"
             type="number"
+            lang="en"
+            dir="ltr"
             min="0"
             step="any"
             className="field-input"
@@ -175,12 +182,10 @@ export function ProductForm({
           <label className="field-label" htmlFor="product-expiry">
             تاريخ الصلاحية
           </label>
-          <input
+          <DateField
             id="product-expiry"
-            type="date"
-            className="field-input"
             value={form.expiryDate}
-            onChange={(event) => update("expiryDate", event.target.value)}
+            onChange={(value) => update("expiryDate", value)}
           />
         </div>
 
@@ -191,6 +196,8 @@ export function ProductForm({
           <input
             id="product-threshold"
             type="number"
+            lang="en"
+            dir="ltr"
             min="0"
             step="any"
             className="field-input"

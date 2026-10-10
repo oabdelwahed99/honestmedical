@@ -1,10 +1,12 @@
 import type { PartyKind } from "@/lib/constants";
 
 const numberFormatter = new Intl.NumberFormat("ar-EG", {
+  numberingSystem: "latn",
   maximumFractionDigits: 2,
 });
 
 const currencyFormatter = new Intl.NumberFormat("ar-EG", {
+  numberingSystem: "latn",
   maximumFractionDigits: 2,
   minimumFractionDigits: 2,
 });
@@ -22,6 +24,7 @@ export function formatDate(value?: string | Date | null) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "—";
   return new Intl.DateTimeFormat("ar-EG", {
+    numberingSystem: "latn",
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -33,6 +36,7 @@ export function formatDateTime(value?: string | Date | null) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "—";
   return new Intl.DateTimeFormat("ar-EG", {
+    numberingSystem: "latn",
     year: "numeric",
     month: "2-digit",
     day: "2-digit",

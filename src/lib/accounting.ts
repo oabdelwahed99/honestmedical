@@ -217,7 +217,7 @@ function buildInsights(input: {
     insights.push({
       tone: "danger",
       title: "خسارة صافية",
-      body: `صافي الخسارة ${Math.abs(input.netProfit).toLocaleString("ar-EG")} ج.م — راجع المصروفات والهوامش.`,
+      body: `صافي الخسارة ${Math.abs(input.netProfit).toLocaleString("ar-EG", { numberingSystem: "latn" })} ج.م — راجع المصروفات والهوامش.`,
     });
   } else if (input.netProfit > 0 && input.previousNetProfit > 0) {
     const delta =
@@ -262,7 +262,7 @@ function buildInsights(input: {
     insights.push({
       tone: "info",
       title: `أكبر بند مصروف: ${top.label}`,
-      body: `يمثل ${top.percent.toFixed(0)}% من المصروفات التشغيلية (${top.amount.toLocaleString("ar-EG")} ج.م).`,
+      body: `يمثل ${top.percent.toFixed(0)}% من المصروفات التشغيلية (${top.amount.toLocaleString("ar-EG", { numberingSystem: "latn" })} ج.م).`,
     });
   }
 
@@ -277,7 +277,7 @@ function buildInsights(input: {
       insights.push({
         tone: "danger",
         title: "تحت نقطة التعادل",
-        body: `ينقصك ${Math.max(0, input.breakeven.breakevenRevenue - input.revenue).toLocaleString("ar-EG")} ج.م من الإيرادات للوصول لنقطة التعادل.`,
+        body: `ينقصك ${Math.max(0, input.breakeven.breakevenRevenue - input.revenue).toLocaleString("ar-EG", { numberingSystem: "latn" })} ج.م من الإيرادات للوصول لنقطة التعادل.`,
       });
     }
   }

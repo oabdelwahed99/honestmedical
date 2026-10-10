@@ -20,6 +20,7 @@ import {
 } from "@/lib/invoice-draft";
 import { formatDate, formatMoney, toDateInputValue } from "@/lib/format";
 import { Alert } from "@/components/ui";
+import { DateField } from "@/components/date-field";
 import type {
   AccountRow,
   Product,
@@ -427,13 +428,7 @@ export function InvoiceForm({
           <label className="field-label" htmlFor="invoice-date">
             التاريخ
           </label>
-          <input
-            id="invoice-date"
-            type="date"
-            className="field-input"
-            value={date}
-            onChange={(event) => setDate(event.target.value)}
-          />
+          <DateField id="invoice-date" value={date} onChange={setDate} />
         </div>
 
         {kind === "sale" ? (
@@ -494,6 +489,8 @@ export function InvoiceForm({
           <input
             id="invoice-discount"
             type="number"
+            lang="en"
+            dir="ltr"
             min="0"
             step="0.01"
             className="field-input"
@@ -529,6 +526,8 @@ export function InvoiceForm({
           <input
             id="invoice-tax"
             type="number"
+            lang="en"
+            dir="ltr"
             min="0"
             step="0.01"
             className="field-input"
@@ -605,6 +604,8 @@ export function InvoiceForm({
                 <label className="field-label">الكمية</label>
                 <input
                   type="number"
+                  lang="en"
+                  dir="ltr"
                   min="0"
                   step="1"
                   className="field-input"
@@ -618,6 +619,8 @@ export function InvoiceForm({
                 <label className="field-label">{priceLabel}</label>
                 <input
                   type="number"
+                  lang="en"
+                  dir="ltr"
                   min="0"
                   step="0.01"
                   className="field-input"
@@ -630,12 +633,10 @@ export function InvoiceForm({
               {kind === "purchase" ? (
                 <div className="sm:col-span-2">
                   <label className="field-label">الصلاحية</label>
-                  <input
-                    type="date"
-                    className="field-input"
+                  <DateField
                     value={line.expiryDate}
-                    onChange={(event) =>
-                      updateLine(line.key, { expiryDate: event.target.value })
+                    onChange={(value) =>
+                      updateLine(line.key, { expiryDate: value })
                     }
                   />
                 </div>
@@ -784,6 +785,8 @@ export function InvoiceForm({
           <input
             id="invoice-paid"
             type="number"
+            lang="en"
+            dir="ltr"
             min="0"
             step="0.01"
             className="field-input"

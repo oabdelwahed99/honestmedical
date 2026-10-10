@@ -18,11 +18,13 @@ export type Period = {
 };
 
 const MONTH_FORMATTER = new Intl.DateTimeFormat("ar-EG", {
+  numberingSystem: "latn",
   month: "long",
   year: "numeric",
 });
 
 const DATE_FORMATTER = new Intl.DateTimeFormat("ar-EG", {
+  numberingSystem: "latn",
   day: "numeric",
   month: "short",
   year: "numeric",
